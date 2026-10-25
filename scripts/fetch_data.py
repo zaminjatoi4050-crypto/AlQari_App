@@ -1,18 +1,12 @@
 #!/usr/bin/env python3
-"""Fetch and validate full Quran data for AlQariApp build-time assets.
+"""Download and validate complete Quran text and translation data."""
 
-The app package does not ship a demo Quran. This script downloads the complete
-Arabic text and three verse translations, then obtains the Quranic Arabic
-Corpus morphology file as a verbatim source asset. It validates the expected
-114 surahs / 6,236 ayat before a release build is allowed to continue.
-"""
 from __future__ import annotations
 
 import json
 import re
 import sys
 import time
-import urllib.error
 import urllib.parse
 import urllib.request
 from pathlib import Path
@@ -21,152 +15,265 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = ROOT / "assets" / "data"
 DATA_DIR.mkdir(parents=True, exist_ok=True)
+
 ALQURAN = "https://api.alquran.cloud/v1"
-MORPHOLOGY_URL = "https://raw.githubusercontent.com/mustafa0x/quran-morphology/master/quran-morphology.txt"
+MORPHOLOGY_URL = (
+    "https://raw.githubusercontent.com/"
+    "mustafa0x/quran-morphology/master/quran-morphology.txt"
+)
 MORPHOLOGY_LICENSE_URL = "https://corpus.quran.com/download/"
-USER_AGENT = "AlQariAppEducationalBuild/1.0 (full-data-fetcher)"
+USER_AGENT = "AlQariAppEducationalBuild/1.0"
 
 
 def fetch_json(url: str, attempts: int = 5) -> Any:
-    last_error: Exception | None = None
-    for attempt in range(attempts):
-        req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, "Accept": "application/json"})
-        try:
-            with urllib.request.urlopen(req, timeout=60) as response:
-                payload = response.read()
-            data = json.loads(payload.decode("utf-8-sig"))
-            if isinstance(data, dict) and "code" in data and data.get("code") != 200:
-                raise RuntimeError(f"API returned {data.get('code')}: {data.get('status')}")
-            return data
-        except Exception as exc:  # network/API transient failures
-            last_error = exc
-            if attempt + 1 < attempts:
-                time.sleep(min(2 ** attempt, 10))
-    raise RuntimeError(f"Failed to download {url}: {last_error}")
+    last_error = None
 
-
-def fetch_bytes(url: str, attempts: int = 5) -> bytes:
-    last_error: Exception | None = None
     for attempt in range(attempts):
-        req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+        request = urllib.request.Request(
+            url,
+            headers={
+                "User-Agent": USER_AGENT,
+                "Accept": "application/json",
+            },
+        )
+
         try:
-            with urllib.request.urlopen(req, timeout=90) as response:
+            with urllib.request.urlopen(request, timeout=60) as response:
                 body = response.read()
-            if not body:
-                raise RuntimeError("empty response")
-            return body
+
+            data = json.loads(body.decode("utf-8-sig"))
+
+            if isinstance(data, dict) and "code" in data:
+                if data.get("code") != 200:
+                    raise RuntimeError(
+                        f"API returned {data.get('code')}: "
+                        f"{data.get('status')}"
+                    )
+
+            return data
+
         except Exception as exc:
             last_error = exc
             if attempt + 1 < attempts:
                 time.sleep(min(2 ** attempt, 10))
+
     raise RuntimeError(f"Failed to download {url}: {last_error}")
 
 
-def get_data(wrapper: Any) -> Any:
-    if isinstance(wrapper, dict) and "data" in wrapper:
-        return wrapper["data"]
-    return wrapper
+def fetch_bytes(url: str, attempts: int = 5) -> bytes:
+    last_error = None
+
+    for attempt in range(attempts):
+        request = urllib.request.Request(
+            url,
+            headers={"User-Agent": USER_AGENT},
+        )
+
+        try:
+            with urllib.request.urlopen(request, timeout=90) as response:
+                body = response.read()
+
+            if not body:
+                raise RuntimeError("The server returned an empty file.")
+
+            return body
+
+        except Exception as exc:
+            last_error = exc
+            if attempt + 1 < attempts:
+                time.sleep(min(2 ** attempt, 10))
+
+    raise RuntimeError(f"Failed to download {url}: {last_error}")
+
+
+def get_data(response: Any) -> Any:
+    if isinstance(response, dict) and "data" in response:
+        return response["data"]
+    return response
 
 
 def get_translation_edition(language: str) -> tuple[str, str, str]:
-    """Return (identifier, translator/name, source version label)."""
     preferred = {
         "en": ["en.sahih", "en.pickthall", "en.yusufali"],
         "ur": ["ur.jalandhry", "ur.junagarhi", "ur.ahmedali"],
         "sd": ["sd.amroti"],
     }[language]
+
     try:
-        listing = get_data(fetch_json(f"{ALQURAN}/edition/language/{language}"))
+        listing = get_data(
+            fetch_json(f"{ALQURAN}/edition/language/{language}")
+        )
     except Exception:
         listing = []
+
     if isinstance(listing, dict):
         listing = listing.get("editions", listing.get("data", []))
+
     if not isinstance(listing, list):
         listing = []
+
     translations = [
-        e for e in listing
-        if isinstance(e, dict)
-        and e.get("identifier")
-        and e.get("format", "text") == "text"
-        and e.get("type", "translation") == "translation"
+        edition
+        for edition in listing
+        if isinstance(edition, dict)
+        and edition.get("identifier")
+        and edition.get("format", "text") == "text"
+        and edition.get("type", "translation") == "translation"
     ]
-    by_id = {str(e.get("identifier", "")): e for e in translations}
-    for ident in preferred:
-        if ident in by_id:
-            e = by_id[ident]
-            return ident, str(e.get("englishName") or e.get("name") or ident), str(e.get("version") or "edition listed by AlQuran Cloud")
 
-    # Pick a known language edition if API identifiers differ or are revised.
-    terms = {"en": ["sahih", "pickthall", "yusuf"], "ur": ["jalandhry", "junagarhi", "ahmed"], "sd": ["amroti", "sindhi"]}[language]
+    by_id = {
+        str(edition.get("identifier", "")): edition
+        for edition in translations
+    }
+
+    for identifier in preferred:
+        if identifier in by_id:
+            edition = by_id[identifier]
+            return (
+                identifier,
+                str(
+                    edition.get("englishName")
+                    or edition.get("name")
+                    or identifier
+                ),
+                str(edition.get("version") or "edition listed by API"),
+            )
+
+    terms = {
+        "en": ["sahih", "pickthall", "yusuf"],
+        "ur": ["jalandhry", "junagarhi", "ahmed"],
+        "sd": ["amroti", "sindhi"],
+    }[language]
+
     for term in terms:
-        for e in translations:
-            haystack = " ".join(str(e.get(k, "")) for k in ("identifier", "name", "englishName")).lower()
-            if term in haystack:
-                ident = str(e["identifier"])
-                return ident, str(e.get("englishName") or e.get("name") or ident), str(e.get("version") or "edition listed by AlQuran Cloud")
-    if translations:
-        e = translations[0]
-        ident = str(e["identifier"])
-        return ident, str(e.get("englishName") or e.get("name") or ident), str(e.get("version") or "edition listed by AlQuran Cloud")
+        for edition in translations:
+            details = " ".join(
+                str(edition.get(key, ""))
+                for key in ("identifier", "name", "englishName")
+            ).lower()
 
-    # If a language-specific listing endpoint is temporarily unavailable, try
-    # the known published identifier. The full-edition download and verse-count
-    # validation that follows is still mandatory, so this is not a silent
-    # substitution or a success assumption.
+            if term in details:
+                identifier = str(edition["identifier"])
+                return (
+                    identifier,
+                    str(
+                        edition.get("englishName")
+                        or edition.get("name")
+                        or identifier
+                    ),
+                    str(edition.get("version") or "edition listed by API"),
+                )
+
+    if translations:
+        edition = translations[0]
+        identifier = str(edition["identifier"])
+        return (
+            identifier,
+            str(
+                edition.get("englishName")
+                or edition.get("name")
+                or identifier
+            ),
+            str(edition.get("version") or "edition listed by API"),
+        )
+
     fallback = {
         "en": ("en.sahih", "Saheeh International"),
         "ur": ("ur.jalandhry", "Fateh Muhammad Jalandhry"),
         "sd": ("sd.amroti", "Taj Mehmood Amroti"),
     }[language]
-    return fallback[0], fallback[1], "known edition identifier; validated by full Quran download"
+
+    return fallback[0], fallback[1], "fallback identifier; download must validate"
 
 
 def fetch_quran_edition(identifier: str) -> dict[str, Any]:
-    data = get_data(fetch_json(f"{ALQURAN}/quran/{urllib.parse.quote(identifier, safe='')}"))
+    url = f"{ALQURAN}/quran/{urllib.parse.quote(identifier, safe='')}"
+    data = get_data(fetch_json(url))
+
     if not isinstance(data, dict) or not isinstance(data.get("surahs"), list):
-        raise RuntimeError(f"Unexpected Quran API response for edition {identifier}")
+        raise RuntimeError(
+            f"Unexpected Quran API response for edition {identifier}"
+        )
+
     return data
 
 
-def normalize_verses(quran: dict[str, Any], translations: dict[str, dict[str, Any]], edition_info: dict[str, dict[str, str]]) -> dict[str, Any]:
+def normalize_verses(
+    quran: dict[str, Any],
+    translations: dict[str, dict[str, Any]],
+    edition_info: dict[str, dict[str, str]],
+) -> dict[str, Any]:
     source_surahs = quran["surahs"]
-    if len(source_surahs) != 114:
-        raise RuntimeError(f"Arabic source contains {len(source_surahs)} surahs, expected 114")
-    for lang, edition in translations.items():
-        if len(edition.get("surahs", [])) != 114:
-            raise RuntimeError(f"Translation {lang} does not contain 114 surahs")
 
-    surahs_out: list[dict[str, Any]] = []
-    total = 0
-    for s_index, arabic_surah in enumerate(source_surahs):
-        sn = int(arabic_surah["number"])
-        translated_by_lang: dict[str, dict[int, str]] = {}
-        for lang, edition in translations.items():
-            tr_surah = edition["surahs"][s_index]
-            if int(tr_surah.get("number", sn)) != sn:
-                raise RuntimeError(f"Surah ordering mismatch for {lang} around surah {sn}")
-            translated_by_lang[lang] = {
-                int(a.get("numberInSurah", idx + 1)): str(a.get("text", ""))
-                for idx, a in enumerate(tr_surah.get("ayahs", []))
+    if len(source_surahs) != 114:
+        raise RuntimeError(
+            f"Arabic source contains {len(source_surahs)} surahs; expected 114."
+        )
+
+    for language, edition in translations.items():
+        if len(edition.get("surahs", [])) != 114:
+            raise RuntimeError(
+                f"Translation {language} does not contain 114 surahs."
+            )
+
+    output_surahs = []
+    total_verses = 0
+
+    for index, arabic_surah in enumerate(source_surahs):
+        surah_number = int(arabic_surah["number"])
+        translations_by_language: dict[str, dict[int, str]] = {}
+
+        for language, edition in translations.items():
+            translated_surah = edition["surahs"][index]
+
+            if int(translated_surah.get("number", surah_number)) != surah_number:
+                raise RuntimeError(
+                    f"Surah ordering mismatch for {language}, "
+                    f"surah {surah_number}."
+                )
+
+            translations_by_language[language] = {
+                int(ayah.get("numberInSurah", ayah_index + 1)):
+                    str(ayah.get("text", ""))
+                for ayah_index, ayah in enumerate(
+                    translated_surah.get("ayahs", [])
+                )
             }
 
-        verses_out: list[dict[str, Any]] = []
-        for idx, ayah in enumerate(arabic_surah.get("ayahs", [])):
-            an = int(ayah.get("numberInSurah", idx + 1))
-            tr_texts: dict[str, str] = {}
-            for lang in ("en", "ur", "sd"):
-                text = translated_by_lang[lang].get(an, "").strip()
+        output_verses = []
+
+        for ayah_index, ayah in enumerate(arabic_surah.get("ayahs", [])):
+            ayah_number = int(
+                ayah.get("numberInSurah", ayah_index + 1)
+            )
+
+            translated_texts = {}
+
+            for language in ("en", "ur", "sd"):
+                text = translations_by_language[language].get(
+                    ayah_number, ""
+                ).strip()
+
                 if not text:
-                    raise RuntimeError(f"Missing {lang} translation at {sn}:{an}; refusing to ship incomplete data")
-                tr_texts[lang] = text
+                    raise RuntimeError(
+                        f"Missing {language} translation at "
+                        f"{surah_number}:{ayah_number}."
+                    )
+
+                translated_texts[language] = text
+
             arabic_text = str(ayah.get("text", "")).strip()
+
             if not arabic_text:
-                raise RuntimeError(f"Missing Arabic Quran text at {sn}:{an}")
-            verses_out.append({
-                "number": an,
-                "key": f"{sn}:{an}",
+                raise RuntimeError(
+                    f"Missing Arabic text at {surah_number}:{ayah_number}."
+                )
+
+            output_verses.append({
+                "number": ayah_number,
+                "key": f"{surah_number}:{ayah_number}",
                 "arabic": arabic_text,
-                "translations": tr_texts,
+                "translations": translated_texts,
                 "juz": int(ayah.get("juz", 1)),
                 "page": int(ayah.get("page", 0) or 0),
                 "hizbQuarter": int(ayah.get("hizbQuarter", 0) or 0),
@@ -174,92 +281,195 @@ def normalize_verses(quran: dict[str, Any], translations: dict[str, dict[str, An
                 "manzil": int(ayah.get("manzil", 0) or 0),
                 "sajda": ayah.get("sajda"),
             })
-        expected = int(arabic_surah.get("numberOfAyahs", len(verses_out)))
-        if len(verses_out) != expected:
-            raise RuntimeError(f"Surah {sn} has {len(verses_out)} verses; source metadata says {expected}")
-        surahs_out.append({
-            "number": sn,
+
+        expected = int(
+            arabic_surah.get("numberOfAyahs", len(output_verses))
+        )
+
+        if len(output_verses) != expected:
+            raise RuntimeError(
+                f"Surah {surah_number}: found {len(output_verses)} ayat; "
+                f"expected {expected}."
+            )
+
+        output_surahs.append({
+            "number": surah_number,
             "nameArabic": str(arabic_surah.get("name", "")),
             "nameEnglish": str(arabic_surah.get("englishName", "")),
-            "nameMeaning": str(arabic_surah.get("englishNameTranslation", "")),
-            "revelationType": str(arabic_surah.get("revelationType", "")),
+            "nameMeaning": str(
+                arabic_surah.get("englishNameTranslation", "")
+            ),
+            "revelationType": str(
+                arabic_surah.get("revelationType", "")
+            ),
             "numberOfAyahs": expected,
-            "verses": verses_out,
+            "verses": output_verses,
         })
-        total += len(verses_out)
 
-    if total != 6236:
-        raise RuntimeError(f"Arabic source has {total} ayat, expected canonical Hafs/Kufan count 6,236. Build stopped.")
+        total_verses += len(output_verses)
+
+    if total_verses != 6236:
+        raise RuntimeError(
+            f"Downloaded {total_verses} ayat; expected 6,236. "
+            "Build stopped."
+        )
+
     return {
         "schemaVersion": 1,
-        "generatedAtUtc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "generatedAtUtc": time.strftime(
+            "%Y-%m-%dT%H:%M:%SZ", time.gmtime()
+        ),
         "datasetType": "complete_quran",
-        "counts": {"surahs": len(surahs_out), "verses": total},
-        "sources": {
-            "arabic": "AlQuran Cloud API edition quran-uthmani; Quran text attribution: Tanzil Project (https://tanzil.net/).",
-            "translations": edition_info,
-            "wordByWord": "Detailed word meanings are looked up on demand from Quran Foundation API and are not copied into the bundled dataset.",
-            "morphology": "Quranic Arabic Corpus / mustafa0x/quran-morphology; see DATA_SOURCES.md",
+        "counts": {
+            "surahs": len(output_surahs),
+            "verses": total_verses,
         },
-        "surahs": surahs_out,
+        "sources": {
+            "arabic": (
+                "AlQuran Cloud quran-uthmani API; "
+                "retain Tanzil attribution: https://tanzil.net/"
+            ),
+            "translations": edition_info,
+            "wordByWord": (
+                "Detailed word meanings are requested online; "
+                "they are not included in the bundled verse data."
+            ),
+            "morphology": (
+                "Quranic Arabic Corpus / mustafa0x/quran-morphology; "
+                "see DATA_SOURCES.md."
+            ),
+        },
+        "surahs": output_surahs,
     }
 
 
 def download_morphology() -> tuple[Path, int]:
+    """Download the corpus and validate either supported location format."""
+
+    print("Downloading Quranic morphology data...")
     data = fetch_bytes(MORPHOLOGY_URL)
-    # Check that this looks like the tab-separated corpus before saving it.
     decoded = data.decode("utf-8-sig")
-    if "LOCATION" not in decoded[:300] or "(1:1:1:" not in decoded:
-        raise RuntimeError("Downloaded morphology data did not match the expected corpus file")
-    target = DATA_DIR / "quran-morphology.txt"
-    # Keep the source file byte-for-byte verbatim; the app parses it locally.
-    target.write_bytes(data)
     lines = decoded.splitlines()
-    records = sum(1 for line in lines if re.match(r"^\(\d+:\d+:\d+:\d+\)\s*\t", line))
+
+    # The source has used both parenthesized and unparenthesized locations.
+    # Example:
+    # (1:1:1:1) TAB FORM TAB TAG TAB FEATURES
+    # 1:1:1:1   TAB FORM TAB TAG TAB FEATURES
+    location_record = re.compile(
+        r"^\s*\(?\d+:\d+:\d+:\d+\)?(?:\t|\s+)"
+    )
+
+    records = 0
+
+    for line in lines:
+        stripped = line.strip()
+
+        if not stripped or stripped.startswith("#"):
+            continue
+
+        if stripped.upper().startswith("LOCATION"):
+            continue
+
+        if location_record.match(line):
+            records += 1
+
     if records < 70000:
-        # The known format is tab-separated; allow a whitespace-delimited format as backup.
-        records = sum(1 for line in lines if re.match(r"^\(\d+:\d+:\d+:\d+\)", line))
-    if records < 70000:
-        raise RuntimeError(f"Morphology source appears incomplete ({records} records); refusing to continue")
+        preview = "\n".join(lines[:8])[:500]
+        raise RuntimeError(
+            "Morphology source validation failed: "
+            f"only {records} location records found; expected at least 70,000. "
+            f"File preview: {preview!r}"
+        )
+
+    target = DATA_DIR / "quran-morphology.txt"
+
+    # Preserve the downloaded source byte-for-byte.
+    target.write_bytes(data)
+
+    print(f"Validated {records:,} morphology records.")
     return target, records
 
 
 def main() -> None:
     print("AlQariApp full Quran data builder")
     print("Fetching Arabic Quran text...")
+
     arabic = fetch_quran_edition("quran-uthmani")
     translations: dict[str, dict[str, Any]] = {}
     edition_info: dict[str, dict[str, str]] = {}
-    for lang in ("en", "ur", "sd"):
-        print(f"Resolving complete {lang} translation edition...")
-        ident, translator, version = get_translation_edition(lang)
-        print(f"  Selected {ident} — {translator}")
-        translations[lang] = fetch_quran_edition(ident)
-        edition_info[lang] = {"identifier": ident, "translator": translator, "version": version, "source": "AlQuran Cloud API (https://alquran.cloud/api)"}
+
+    for language in ("en", "ur", "sd"):
+        print(f"Resolving complete {language} translation edition...")
+
+        identifier, translator, version = get_translation_edition(language)
+        print(f"Selected {identifier} — {translator}")
+
+        translations[language] = fetch_quran_edition(identifier)
+
+        edition_info[language] = {
+            "identifier": identifier,
+            "translator": translator,
+            "version": version,
+            "source": "AlQuran Cloud API (https://alquran.cloud/api)",
+        }
 
     complete = normalize_verses(arabic, translations, edition_info)
-    out_path = DATA_DIR / "quran.json"
-    out_path.write_text(json.dumps(complete, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-    print(f"Wrote complete Quran data: {out_path} ({out_path.stat().st_size:,} bytes)")
-    morph_path, morph_records = download_morphology()
+
+    quran_path = DATA_DIR / "quran.json"
+    quran_path.write_text(
+        json.dumps(complete, ensure_ascii=False, separators=(",", ":")),
+        encoding="utf-8",
+    )
+
+    print(
+        f"Wrote Quran data: {quran_path} "
+        f"({quran_path.stat().st_size:,} bytes)"
+    )
+
+    morphology_path, record_count = download_morphology()
+
     manifest = {
         "app": "AlQariApp",
         "status": "complete-quran-bundle",
         "generatedAtUtc": complete["generatedAtUtc"],
-        "counts": {**complete["counts"], "morphologySegments": morph_records},
+        "counts": {
+            **complete["counts"],
+            "morphologySegments": record_count,
+        },
         "translations": edition_info,
         "morphologySource": MORPHOLOGY_URL,
         "morphologyLicenseReference": MORPHOLOGY_LICENSE_URL,
         "attributions": [
-            "Quran text: Tanzil Project (https://tanzil.net/) — preserve the source text verbatim and retain attribution.",
-            "Translation editions and translator identifiers are listed in this manifest; see AlQuran Cloud terms and translation rights.",
-            "Word morphology: Quranic Arabic Corpus / mustafa0x/quran-morphology. The morphology source file is bundled verbatim at assets/data/quran-morphology.txt.",
-            "Word-by-word gloss lookup: Quran Foundation API (https://api.quran.com/), requested online at runtime; not part of the bundled verse corpus.",
+            (
+                "Quran text: Tanzil Project "
+                "(https://tanzil.net/); preserve attribution."
+            ),
+            (
+                "Translation editions and translator identifiers are recorded "
+                "in this manifest; verify the source terms before redistribution."
+            ),
+            (
+                "Morphology: Quranic Arabic Corpus / mustafa0x/quran-morphology; "
+                "source file is bundled verbatim."
+            ),
+            (
+                "Word-by-word gloss lookup uses Quran Foundation API "
+                "(https://api.quran.com/) at runtime."
+            ),
         ],
     }
-    (DATA_DIR / "data_manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
-    print(f"Saved morphology source file ({morph_path.stat().st_size:,} bytes; {morph_records:,} records)")
-    print("Data validation passed: 114 surahs, 6,236 ayat, three translations and full morphology source.")
+
+    manifest_path = DATA_DIR / "data_manifest.json"
+    manifest_path.write_text(
+        json.dumps(manifest, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+    print(f"Morphology saved: {morphology_path}")
+    print(
+        "Data validation passed: 114 surahs, 6,236 ayat, "
+        "three translations and morphology source."
+    )
 
 
 if __name__ == "__main__":
@@ -267,4 +477,4 @@ if __name__ == "__main__":
         main()
     except Exception as error:
         print(f"DATA BUILD FAILED: {error}", file=sys.stderr)
-        sys.exit(1)
+        sys.exit(1)git add scripts/fetch_data.py
