@@ -2216,8 +2216,6 @@ class SettingsPage extends StatelessWidget {
             ],
           ),
         ),
-      ],
-    );
         _settingsCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
