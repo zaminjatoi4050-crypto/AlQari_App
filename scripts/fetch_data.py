@@ -477,4 +477,4 @@ if __name__ == "__main__":
         main()
     except Exception as error:
         print(f"DATA BUILD FAILED: {error}", file=sys.stderr)
-        sys.exit(1)git add scripts/fetch_data.py
+        sys.exit(1)
