@@ -586,7 +586,6 @@ class QuranRepository {
   static Map<String, WordMorphology> _parseMorphology(
     String source,
   ) {
-    final grouped = <String, List<MorphSegment>>[];
     final segmentsByKey = <String, List<MorphSegment>>{};
     final rootByKey = <String, String>{};
     final lemmaByKey = <String, String>{};
