@@ -1335,7 +1335,7 @@ class _ReaderPageState extends State<ReaderPage> {
               const SizedBox(height: 10),
               if (_mode == 'juz')
                 DropdownButtonFormField<int>(
-                  value: _selectedJuz,
+                  initialValue: _selectedJuz,
                   isExpanded: true,
                   decoration: InputDecoration(
                     labelText: uiText(language, 'selectJuz'),
@@ -1359,7 +1359,7 @@ class _ReaderPageState extends State<ReaderPage> {
                 )
               else
                 DropdownButtonFormField<int>(
-                  value: _selectedSurah,
+                  initialValue: _selectedSurah,
                   isExpanded: true,
                   decoration: InputDecoration(
                     labelText: uiText(language, 'selectSurah'),
@@ -2191,25 +2191,33 @@ class SettingsPage extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 10),
-              for (final entry in [
-                ('en', uiText(language, 'english')),
-                ('ur', uiText(language, 'urdu')),
-                ('sd', uiText(language, 'sindhi')),
-              ])
-                RadioListTile<String>(
-                  contentPadding: EdgeInsets.zero,
-                  value: entry.$1,
-                  groupValue: language,
-                  title: Text(entry.$2),
-                  onChanged: (value) {
-                    if (value != null) {
-                      onLanguage(value);
-                    }
-                  },
+              RadioGroup<String>(
+                groupValue: language,
+                onChanged: (String? value) {
+                  if (value != null) {
+                    onLanguage(value);
+                  }
+                },
+                child: Column(
+                  children: [
+                    for (final entry in [
+                      ('en', uiText(language, 'english')),
+                      ('ur', uiText(language, 'urdu')),
+                      ('sd', uiText(language, 'sindhi')),
+                    ])
+                      RadioListTile<String>(
+                        contentPadding: EdgeInsets.zero,
+                        value: entry.$1,
+                        title: Text(entry.$2),
+                      ),
+                  ],
                 ),
+              ),
             ],
           ),
         ),
+      ],
+    );
         _settingsCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
