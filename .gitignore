@@ -1,0 +1,17 @@
+.dart_tool/
+.packages
+.pub/
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+.metadata
+.idea/
+.vscode/
+*.iml
+android/.gradle/
+android/local.properties
+.DS_Store
+
+__pycache__/
+*.py[cod]
+android_scaffold/

@@ -1,0 +1,80 @@
+name: Build complete AlQariApp APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, master ]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: alqariapp-release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-release-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout project
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Fetch and validate full Quran data
+        run: python scripts/fetch_data.py
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Flutter stable
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Generate Android platform scaffolding without touching Dart source
+        shell: bash
+        run: |
+          rm -rf android_scaffold
+          flutter create --platforms=android --project-name=al_qari_app --org=com.alqari android_scaffold
+          cp -R android_scaffold/android ./android
+          rm -rf android_scaffold
+
+      - name: Ensure Android network permission
+        run: python scripts/patch_android_manifest.py
+
+      - name: Resolve Flutter packages
+        run: flutter pub get
+
+      - name: Run Flutter analyzer
+        run: flutter analyze
+
+      - name: Run project tests
+        run: flutter test
+
+      - name: Build release APK
+        run: flutter build apk --release
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AlQariApp-Complete-Release-APK
+          path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload data manifest for provenance
+        uses: actions/upload-artifact@v4
+        with:
+          name: AlQariApp-Data-Manifest
+          path: assets/data/data_manifest.json
+          if-no-files-found: error
+          retention-days: 30
