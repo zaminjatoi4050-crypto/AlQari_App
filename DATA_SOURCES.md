@@ -34,3 +34,16 @@ The build selects full text editions from AlQuran Cloud's language-edition direc
 ## Code license
 
 The project source code in this repository is made available under the MIT license. This does not replace or override the independent terms for the Quran text, translations, API content, morphology corpus, Flutter packages, or fonts.
+
+
+## Arabic typeface (v1.2.0)
+
+- **Amiri Quran** (Amiri Project authors; accessed through Google Fonts) is used for Quran verse words, selected-word details, and the Settings preview. Project documentation describes support for Quranic notation; licensing is SIL Open Font License 1.1.
+- Source text is not changed to fit the font. A font affects glyph rendering only.
+- Google Fonts runtime fetching/cache requires a successful first online load; a first launch without connectivity can fall back to the system font. This should be checked before treating the release as fully offline-ready.
+- References: https://aliftype.com/amiri/ and https://pub.dev/packages/google_fonts
+
+## Ayah audio / recitation
+
+- Audio is streamed by ayah from the Al Quran Cloud CDN. URL structure and edition examples are documented at https://alquran.cloud/cdn. The app does not bundle audio files. The edition IDs configured in the app include `ar.alafasy`, `ar.abdulbasit`, `ar.abdulbasitmujawwad`, `ar.husary`, `ar.minshawi`, `ar.minshawimujawwad`, `ar.sudais`, `ar.shuraim`, `ar.ajamy`, and `ar.hudhaify`.
+- Audio stream URLs require an internet connection. Verify current provider terms and any required rights/permissions for the recitation recordings before public/commercial release; CDN availability alone should not be treated as a blanket commercial license.

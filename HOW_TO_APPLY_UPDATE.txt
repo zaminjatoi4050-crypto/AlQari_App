@@ -1,0 +1,17 @@
+AlQari v1.5.0 — apply this update to your existing Windows project
+
+1. Extract this ZIP.
+2. If your Git repository is still at D:\Downloads\AlQariApp_Full_Project\AlQariApp_Full, double-click APPLY_UPDATE_TO_EXISTING_PROJECT.cmd.
+3. The updater copies the changed application code, brand assets, workflow, data scripts and tests into that folder. It preserves the .git folder.
+4. Open PowerShell in your existing project folder and run these commands one at a time:
+
+   git status
+   git diff --check
+   git add lib/main.dart pubspec.yaml scripts/patch_android_manifest.py scripts/fetch_data.py test/app_logic_test.dart README.md DATA_SOURCES.md BUILD_APK_ON_GITHUB.md LICENSE .github/workflows/build-apk.yml BRAND_GUIDE_1.5.0.md UPDATE_NOTES_1.5.0.md RELEASE_CHECKLIST_1.5.0.md UI_UX_IMPLEMENTATION_1.5.0.md assets/branding/al_qari_icon.png assets/branding/al_qari_wordmark.png assets/branding/al_qari_play_store_icon_512.png assets/branding/android
+   git diff --cached --check
+   git commit -m "Rebrand AlQari and add professional home dashboard"
+   git push
+
+5. Open GitHub Actions and confirm flutter analyze, flutter test, and APK build pass. Download the AlQari-Release-APK artifact.
+
+Do not claim the release is verified until GitHub Actions passes and you test the APK on an Android device. This update retains the current application ID convention, so do not change the Android package ID without a deliberate migration plan.

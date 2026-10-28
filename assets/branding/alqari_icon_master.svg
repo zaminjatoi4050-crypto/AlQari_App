@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+<defs>
+  <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F6E3A2"/><stop offset="0.42" stop-color="#D8B56A"/><stop offset="1" stop-color="#B78231"/></linearGradient>
+  <linearGradient id="page" x1="0" y1="0" x2="0.85" y2="1"><stop offset="0" stop-color="#FFF9E9"/><stop offset="1" stop-color="#DCC58A"/></linearGradient>
+  <radialGradient id="bg" cx="30%" cy="14%" r="95%"><stop offset="0" stop-color="#155B48"/><stop offset="0.52" stop-color="#0D3B30"/><stop offset="1" stop-color="#071F1A"/></radialGradient>
+  <pattern id="pattern" width="92" height="92" patternUnits="userSpaceOnUse" opacity="0.13">
+    <path d="M46 5 L57 35 L87 46 L57 57 L46 87 L35 57 L5 46 L35 35Z" fill="none" stroke="#D8B56A" stroke-width="2"/>
+    <circle cx="46" cy="46" r="9" fill="none" stroke="#D8B56A" stroke-width="1.5"/>
+  </pattern>
+  <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#000000" flood-opacity="0.28"/></filter>
+</defs>
+<!-- Full app-icon canvas -->
+<rect width="1024" height="1024" rx="218" fill="url(#bg)"/>
+<rect x="22" y="22" width="980" height="980" rx="202" fill="url(#pattern)"/>
+<rect x="34" y="34" width="956" height="956" rx="194" fill="none" stroke="#D8B56A" stroke-width="4" opacity="0.8"/>
+<!-- Mihrab-inspired silhouette -->
+<g filter="url(#shadow)">
+  <path d="M512 104 C457 157 315 206 286 350 C266 450 292 564 324 650 L512 780 L700 650 C732 564 758 450 738 350 C709 206 567 157 512 104Z" fill="#092D24" stroke="url(#gold)" stroke-width="17" stroke-linejoin="round"/>
+  <path d="M512 145 C465 187 348 232 325 355 C307 448 333 547 357 615 L512 722 L667 615 C691 547 717 448 699 355 C676 232 559 187 512 145Z" fill="none" stroke="#28745A" stroke-width="5" opacity="0.95"/>
+  <path d="M512 174 C480 204 386 246 365 356 C349 438 369 521 390 579" fill="none" stroke="#D8B56A" stroke-width="2.5" opacity="0.55"/>
+  <path d="M512 174 C544 204 638 246 659 356 C675 438 655 521 634 579" fill="none" stroke="#D8B56A" stroke-width="2.5" opacity="0.55"/>
+</g>
+<!-- Crescent and star -->
+<circle cx="512" cy="270" r="68" fill="url(#gold)"/>
+<circle cx="541" cy="247" r="61" fill="#0D3B30"/>
+<path d="M594 218 L604 240 L628 242 L610 258 L615 282 L594 270 L573 282 L578 258 L560 242 L584 240Z" fill="url(#gold)"/>
+<!-- Tiny rays -->
+<g stroke="#D8B56A" stroke-width="5" stroke-linecap="round" opacity="0.85">
+  <path d="M512 176 V158 M466 188 L454 174 M558 188 L570 174 M450 228 L431 221 M574 228 L593 221"/>
+</g>
+<!-- Open Quran pages -->
+<g stroke="#B78231" stroke-width="8" stroke-linejoin="round" filter="url(#shadow)">
+  <path d="M512 565 C457 520 389 511 331 534 L331 664 C390 643 458 651 512 696Z" fill="url(#page)"/>
+  <path d="M512 565 C567 520 635 511 693 534 L693 664 C634 643 566 651 512 696Z" fill="url(#page)"/>
+  <path d="M512 566 L512 696" fill="none" stroke="#A8752B" stroke-width="7"/>
+</g>
+<!-- Page lines -->
+<g fill="none" stroke="#B9954F" stroke-width="5" stroke-linecap="round" opacity="0.88">
+  <path d="M363 560 C405 550 451 563 481 583"/>
+  <path d="M363 588 C405 578 451 591 481 611"/>
+  <path d="M363 616 C405 606 451 619 481 639"/>
+  <path d="M661 560 C619 550 573 563 543 583"/>
+  <path d="M661 588 C619 578 573 591 543 611"/>
+  <path d="M661 616 C619 606 573 619 543 639"/>
+</g>
+<!-- Book base layers -->
+<path d="M325 681 C395 658 455 673 512 711 C569 673 629 658 699 681 L681 704 C617 692 563 709 512 740 C461 709 407 692 343 704Z" fill="url(#gold)" stroke="#8B642A" stroke-width="5"/>
+<path d="M369 714 C418 709 466 726 512 751 C558 726 606 709 655 714 L637 732 C588 731 548 747 512 769 C476 747 436 731 387 732Z" fill="#E8D29A" stroke="#B78231" stroke-width="4"/>
+</svg>

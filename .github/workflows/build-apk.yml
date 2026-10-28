@@ -1,4 +1,4 @@
-name: Build complete AlQariApp APK
+name: Build complete AlQari APK
 
 on:
   workflow_dispatch:
@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: alqariapp-release-${{ github.ref }}
+  group: alqari-release-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -48,7 +48,7 @@ jobs:
           cp -R android_scaffold/android ./android
           rm -rf android_scaffold
 
-      - name: Ensure Android network permission
+      - name: Set AlQari app label, permissions and launcher icon
         run: python scripts/patch_android_manifest.py
 
       - name: Resolve Flutter packages
@@ -66,7 +66,7 @@ jobs:
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AlQariApp-Complete-Release-APK
+          name: AlQari-Release-APK
           path: build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
           retention-days: 30
@@ -74,7 +74,7 @@ jobs:
       - name: Upload data manifest for provenance
         uses: actions/upload-artifact@v4
         with:
-          name: AlQariApp-Data-Manifest
+          name: AlQari-Data-Manifest
           path: assets/data/data_manifest.json
           if-no-files-found: error
           retention-days: 30
