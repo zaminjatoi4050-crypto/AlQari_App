@@ -182,6 +182,7 @@ String uiText(String language, String key) {
     'juzMode': {'en': 'Juz / Para', 'ur': 'پارہ', 'sd': 'پارو'},
     'surahMode': {'en': 'Surah', 'ur': 'سورۃ', 'sd': 'سورت'},
     'translation': {'en': 'Translation of meaning', 'ur': 'ترجمۂ مفہوم', 'sd': 'مفهوم جو ترجمو'},
+    'translationLanguage': {'en': 'Translation language', 'ur': 'ترجمے کی زبان', 'sd': 'ترجمي جي ٻولي'},
     'wordAnalysis': {'en': 'Word analysis', 'ur': 'لفظ کا تجزیہ', 'sd': 'لفظ جو تجزيو'},
     'wordMeaning': {'en': 'Word meaning', 'ur': 'لفظی معنی', 'sd': 'لفظي معنيٰ'},
     'root': {'en': 'Root (Jذر)', 'ur': 'مادہ', 'sd': 'مادو'},
@@ -827,6 +828,7 @@ class _HomeShellState extends State<HomeShell> {
   int _tab = 0;
   int _selectedBottomIndex = 0;
   String _language = 'en';
+  String _translationLanguage = 'ur';
   double _arabicScale = 32;
   String _readerMode = 'juz';
   int _readerSelectedJuz = 20;
@@ -850,6 +852,8 @@ class _HomeShellState extends State<HomeShell> {
     setState(() {
       final lang = prefs.getString('language') ?? 'en';
       _language = const ['en', 'ur', 'sd'].contains(lang) ? lang : 'en';
+      final savedTranslationLanguage = prefs.getString('translationLanguage') ?? 'ur';
+      _translationLanguage = const ['en', 'ur', 'sd'].contains(savedTranslationLanguage) ? savedTranslationLanguage : 'ur';
       _arabicScale = (prefs.getDouble('arabicScale') ?? 32).clamp(26, 50).toDouble();
       _readerMode = prefs.getString('readerMode') == 'surah' ? 'surah' : 'juz';
       _readerSelectedJuz = (prefs.getInt('readerJuz') ?? 20).clamp(1, 30).toInt();
@@ -869,6 +873,13 @@ class _HomeShellState extends State<HomeShell> {
     setState(() => _language = value);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('language', value);
+  }
+
+  Future<void> _setTranslationLanguage(String value) async {
+    if (!const ['en', 'ur', 'sd'].contains(value)) return;
+    setState(() => _translationLanguage = value);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('translationLanguage', value);
   }
 
   Future<void> _setArabicScale(double value) async {
@@ -968,7 +979,7 @@ class _HomeShellState extends State<HomeShell> {
     showAboutDialog(
       context: context,
       applicationName: 'AlQari',
-      applicationVersion: '1.5.0',
+      applicationVersion: '1.8.0',
       applicationIcon: alQariBrandMark(size: 58, radius: 14),
       children: const [
         Text('Read, search, bookmark, listen to recitation, and study Quran ayat in English, Urdu and Sindhi.'),
@@ -1081,7 +1092,7 @@ class _HomeShellState extends State<HomeShell> {
                   _drawerItem(icon: Icons.info_outline_rounded, title: uiText(lang, 'about'), onTap: _showAbout),
                 ]),
               ),
-              Padding(padding: const EdgeInsets.fromLTRB(20, 0, 20, 12), child: Text('AlQari · Version 1.5.0', style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 11))),
+              Padding(padding: const EdgeInsets.fromLTRB(20, 0, 20, 12), child: Text('AlQari · Version 1.8.0', style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 11))),
             ]),
           ),
         ),
@@ -1091,6 +1102,7 @@ class _HomeShellState extends State<HomeShell> {
             HomeDashboard(
               repository: widget.repository,
               language: lang,
+              translationLanguage: _translationLanguage,
               lastReadKey: _lastReadKey,
               lastReadSurah: _lastReadSurah,
               bookmarkCount: _bookmarks.length,
@@ -1105,6 +1117,8 @@ class _HomeShellState extends State<HomeShell> {
             ReaderPage(
               repository: widget.repository,
               language: lang,
+              translationLanguage: _translationLanguage,
+              onTranslationLanguage: _setTranslationLanguage,
               bookmarks: _bookmarks,
               arabicScale: _arabicScale,
               onBookmark: _toggleBookmark,
@@ -1121,12 +1135,14 @@ class _HomeShellState extends State<HomeShell> {
             RecitationPage(
               repository: widget.repository,
               language: lang,
+              translationLanguage: _translationLanguage,
+              onTranslationLanguage: _setTranslationLanguage,
               arabicScale: _arabicScale,
               initialSurah: _readerMode == 'surah' ? _readerSelectedSurah : _lastReadSurah,
               active: _tab == 2,
             ),
-            SearchPage(repository: widget.repository, language: lang, bookmarks: _bookmarks, arabicScale: _arabicScale, onBookmark: _toggleBookmark, onReadAyah: (ayah) => _markRead(ayah)),
-            BookmarksPage(repository: widget.repository, language: lang, bookmarks: _bookmarks, arabicScale: _arabicScale, onBookmark: _toggleBookmark, onReadAyah: (ayah) => _markRead(ayah)),
+            SearchPage(repository: widget.repository, language: lang, translationLanguage: _translationLanguage, bookmarks: _bookmarks, arabicScale: _arabicScale, onBookmark: _toggleBookmark, onReadAyah: (ayah) => _markRead(ayah)),
+            BookmarksPage(repository: widget.repository, language: lang, translationLanguage: _translationLanguage, bookmarks: _bookmarks, arabicScale: _arabicScale, onBookmark: _toggleBookmark, onReadAyah: (ayah) => _markRead(ayah)),
             MorePage(
               language: lang,
               bookmarkCount: _bookmarks.length,
@@ -1139,6 +1155,8 @@ class _HomeShellState extends State<HomeShell> {
             ),
             SettingsPage(
               language: lang,
+              translationLanguage: _translationLanguage,
+              onTranslationLanguage: _setTranslationLanguage,
               arabicScale: _arabicScale,
               manifest: widget.repository.dataManifest,
               onLanguage: _setLanguage,
@@ -1180,6 +1198,7 @@ class _HomeShellState extends State<HomeShell> {
 class HomeDashboard extends StatelessWidget {
   final QuranRepository repository;
   final String language;
+  final String translationLanguage;
   final String? lastReadKey;
   final int lastReadSurah;
   final int bookmarkCount;
@@ -1195,6 +1214,7 @@ class HomeDashboard extends StatelessWidget {
     super.key,
     required this.repository,
     required this.language,
+    required this.translationLanguage,
     required this.lastReadKey,
     required this.lastReadSurah,
     required this.bookmarkCount,
@@ -1348,7 +1368,7 @@ class HomeDashboard extends StatelessWidget {
             const SizedBox(height: 12),
             Directionality(textDirection: TextDirection.rtl, child: Text(dailyAyah.arabic, textAlign: TextAlign.center, style: quranTextStyle(context, fontSize: 29, height: 2.0, color: scheme.onSurface))),
             const SizedBox(height: 10),
-            Text(dailyAyah.translationFor(language), textDirection: isRtl(language) ? TextDirection.rtl : TextDirection.ltr, textAlign: TextAlign.start, style: TextStyle(color: scheme.onSurface, fontSize: 14, height: 1.65)),
+            Text(dailyAyah.translationFor(translationLanguage), textDirection: isRtl(translationLanguage) ? TextDirection.rtl : TextDirection.ltr, textAlign: TextAlign.start, style: TextStyle(color: scheme.onSurface, fontSize: 14, height: 1.65)),
             const SizedBox(height: 13),
             Align(alignment: AlignmentDirectional.centerEnd, child: TextButton.icon(onPressed: onReadQuran, icon: const Icon(Icons.menu_book_rounded, size: 18), label: Text(uiText(language, 'readSubtitle')))),
           ]),
@@ -1422,7 +1442,7 @@ class MorePage extends StatelessWidget {
       (icon: Icons.menu_book_rounded, title: uiText(language, 'continueReading'), subtitle: uiText(language, 'readSubtitle'), action: onContinueReading),
       (icon: Icons.translate_rounded, title: uiText(language, 'translationTools'), subtitle: 'English · اردو · سنڌي', action: onSettings),
       (icon: Icons.tune_rounded, title: uiText(language, 'settingsAppearance'), subtitle: uiText(language, 'appearance'), action: onSettings),
-      (icon: Icons.info_outline_rounded, title: uiText(language, 'about'), subtitle: 'AlQari · Version 1.5.0', action: onAbout),
+      (icon: Icons.info_outline_rounded, title: uiText(language, 'about'), subtitle: 'AlQari · Version 1.8.0', action: onAbout),
     ];
     return ListView(padding: const EdgeInsets.fromLTRB(16, 16, 16, 28), children: [
       Container(
@@ -1479,6 +1499,8 @@ class MorePage extends StatelessWidget {
 class ReaderPage extends StatefulWidget {
   final QuranRepository repository;
   final String language;
+  final String translationLanguage;
+  final ValueChanged<String> onTranslationLanguage;
   final Set<String> bookmarks;
   final double arabicScale;
   final Future<void> Function(Ayah) onBookmark;
@@ -1496,6 +1518,8 @@ class ReaderPage extends StatefulWidget {
     super.key,
     required this.repository,
     required this.language,
+    required this.translationLanguage,
+    required this.onTranslationLanguage,
     required this.bookmarks,
     required this.arabicScale,
     required this.onBookmark,
@@ -1651,6 +1675,8 @@ class _ReaderPageState extends State<ReaderPage> {
               ),
           ]),
           const SizedBox(height: 12),
+          translationLanguageSelector(context, uiLanguage: lang, translationLanguage: widget.translationLanguage, onChanged: widget.onTranslationLanguage),
+          const SizedBox(height: 12),
           FilledButton.icon(
             onPressed: widget.onOpenRecitation,
             icon: const Icon(Icons.headphones_rounded),
@@ -1678,6 +1704,7 @@ class _ReaderPageState extends State<ReaderPage> {
                     repository: widget.repository,
                     ayah: ayahs[index],
                     language: lang,
+                    translationLanguage: widget.translationLanguage,
                     arabicScale: widget.arabicScale,
                     isBookmarked: widget.bookmarks.contains(ayahs[index].key),
                     onBookmark: () => widget.onBookmark(ayahs[index]),
@@ -1695,6 +1722,8 @@ class _ReaderPageState extends State<ReaderPage> {
 class RecitationPage extends StatefulWidget {
   final QuranRepository repository;
   final String language;
+  final String translationLanguage;
+  final ValueChanged<String> onTranslationLanguage;
   final double arabicScale;
   final int initialSurah;
   final bool active;
@@ -1703,6 +1732,8 @@ class RecitationPage extends StatefulWidget {
     super.key,
     required this.repository,
     required this.language,
+    required this.translationLanguage,
+    required this.onTranslationLanguage,
     required this.arabicScale,
     required this.initialSurah,
     this.active = true,
@@ -1903,6 +1934,8 @@ class _RecitationPageState extends State<RecitationPage> {
               ),
               const SizedBox(height: 10),
               Text('${_reciter.bitrate} kbps · ${_reciter.id}', style: TextStyle(fontSize: 11, color: _mutedColor(context))),
+              const SizedBox(height: 14),
+              translationLanguageSelector(context, uiLanguage: lang, translationLanguage: widget.translationLanguage, onChanged: widget.onTranslationLanguage),
             ])),
             const SizedBox(height: 12),
             _settingsCard(context, child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -1928,7 +1961,7 @@ class _RecitationPageState extends State<RecitationPage> {
                       const SizedBox(height: 6),
                       Text(ayah.arabic, textDirection: TextDirection.rtl, textAlign: TextAlign.center, style: quranTextStyle(context, fontSize: widget.arabicScale, height: 2.15, color: scheme.onSurface)),
                       const SizedBox(height: 10),
-                      Text(ayah.translationFor(lang), textDirection: isRtl(lang) ? TextDirection.rtl : TextDirection.ltr, textAlign: TextAlign.center, style: TextStyle(fontSize: 14, height: 1.65, color: scheme.onSurfaceVariant)),
+                      Text(ayah.translationFor(widget.translationLanguage), textDirection: isRtl(widget.translationLanguage) ? TextDirection.rtl : TextDirection.ltr, textAlign: TextAlign.center, style: TextStyle(fontSize: 14, height: 1.65, color: scheme.onSurfaceVariant)),
                       const SizedBox(height: 8),
                       Text('${_surah.nameEnglish} · ${_surah.number}:${ayah.number}', style: TextStyle(fontSize: 11, color: _mutedColor(context))),
                     ]),
@@ -2013,6 +2046,7 @@ class VerseCard extends StatelessWidget {
   final QuranRepository repository;
   final Ayah ayah;
   final String language;
+  final String? translationLanguage;
   final double arabicScale;
   final bool isBookmarked;
   final bool isLastRead;
@@ -2024,6 +2058,7 @@ class VerseCard extends StatelessWidget {
     required this.repository,
     required this.ayah,
     required this.language,
+    this.translationLanguage,
     required this.arabicScale,
     required this.isBookmarked,
     required this.onBookmark,
@@ -2035,6 +2070,7 @@ class VerseCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final surah = repository.surah(ayah.surahNumber)!;
     final scheme = Theme.of(context).colorScheme;
+    final selectedTranslation = translationLanguage ?? language;
     final words = ayah.arabic.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -2113,11 +2149,11 @@ class VerseCard extends StatelessWidget {
           const SizedBox(height: 10),
           const Divider(height: 1),
           const SizedBox(height: 9),
-          Text(uiText(language, 'translation'), style: TextStyle(color: scheme.primary, fontWeight: FontWeight.w800, fontSize: 12)),
+          Text('${uiText(language, 'translation')} · ${uiText(language, selectedTranslation == 'ur' ? 'urdu' : selectedTranslation == 'sd' ? 'sindhi' : 'english')}', style: TextStyle(color: scheme.primary, fontWeight: FontWeight.w800, fontSize: 12)),
           const SizedBox(height: 4),
           Text(
-            ayah.translationFor(language),
-            textDirection: isRtl(language) ? TextDirection.rtl : TextDirection.ltr,
+            ayah.translationFor(selectedTranslation),
+            textDirection: isRtl(selectedTranslation) ? TextDirection.rtl : TextDirection.ltr,
             style: TextStyle(fontSize: 15, height: 1.65, color: scheme.onSurface),
           ),
           const SizedBox(height: 6),
@@ -2272,11 +2308,12 @@ String _nahwHelp(String language, WordMorphology? morphology) {
 class SearchPage extends StatefulWidget {
   final QuranRepository repository;
   final String language;
+  final String translationLanguage;
   final Set<String> bookmarks;
   final double arabicScale;
   final Future<void> Function(Ayah) onBookmark;
   final Future<void> Function(Ayah) onReadAyah;
-  const SearchPage({super.key, required this.repository, required this.language, required this.bookmarks, required this.arabicScale, required this.onBookmark, required this.onReadAyah});
+  const SearchPage({super.key, required this.repository, required this.language, required this.translationLanguage, required this.bookmarks, required this.arabicScale, required this.onBookmark, required this.onReadAyah});
   @override
   State<SearchPage> createState() => _SearchPageState();
 }
@@ -2335,6 +2372,7 @@ class _SearchPageState extends State<SearchPage> {
                       repository: widget.repository,
                       ayah: results[index],
                       language: lang,
+                      translationLanguage: widget.translationLanguage,
                       arabicScale: widget.arabicScale,
                       isBookmarked: widget.bookmarks.contains(results[index].key),
                       onBookmark: () => widget.onBookmark(results[index]),
@@ -2350,11 +2388,12 @@ class _SearchPageState extends State<SearchPage> {
 class BookmarksPage extends StatelessWidget {
   final QuranRepository repository;
   final String language;
+  final String translationLanguage;
   final Set<String> bookmarks;
   final double arabicScale;
   final Future<void> Function(Ayah) onBookmark;
   final Future<void> Function(Ayah) onReadAyah;
-  const BookmarksPage({super.key, required this.repository, required this.language, required this.bookmarks, required this.arabicScale, required this.onBookmark, required this.onReadAyah});
+  const BookmarksPage({super.key, required this.repository, required this.language, required this.translationLanguage, required this.bookmarks, required this.arabicScale, required this.onBookmark, required this.onReadAyah});
 
   @override
   Widget build(BuildContext context) {
@@ -2364,7 +2403,7 @@ class BookmarksPage extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       itemCount: saved.length,
       itemBuilder: (context, index) => VerseCard(
-        repository: repository, ayah: saved[index], language: language, arabicScale: arabicScale,
+        repository: repository, ayah: saved[index], language: language, translationLanguage: translationLanguage, arabicScale: arabicScale,
         isBookmarked: true, onBookmark: () => onBookmark(saved[index]), onReadAyah: () => onReadAyah(saved[index]),
       ),
     );
@@ -2373,6 +2412,8 @@ class BookmarksPage extends StatelessWidget {
 
 class SettingsPage extends StatelessWidget {
   final String language;
+  final String translationLanguage;
+  final ValueChanged<String> onTranslationLanguage;
   final double arabicScale;
   final Map<String, dynamic> manifest;
   final ValueChanged<String> onLanguage;
@@ -2385,6 +2426,8 @@ class SettingsPage extends StatelessWidget {
   const SettingsPage({
     super.key,
     required this.language,
+    required this.translationLanguage,
+    required this.onTranslationLanguage,
     required this.arabicScale,
     required this.manifest,
     required this.onLanguage,
@@ -2445,6 +2488,13 @@ class SettingsPage extends StatelessWidget {
         ),
       ])),
       _settingsCard(context, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(uiText(language, 'translationLanguage'), style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: scheme.primary)),
+        const SizedBox(height: 8),
+        Text(language == 'ur' ? 'App ki language se alag translation chun sakte hain.' : language == 'sd' ? 'ايپ جي ٻوليءَ کان الڳ ترجمو چونڊي سگھو ٿا.' : 'Choose the verse translation independently of the app interface.', style: TextStyle(color: _mutedColor(context), height: 1.45)),
+        const SizedBox(height: 12),
+        translationLanguageSelector(context, uiLanguage: language, translationLanguage: translationLanguage, onChanged: onTranslationLanguage),
+      ])),
+      _settingsCard(context, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text(uiText(language, 'arabicSize'), style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: scheme.primary)),
         const SizedBox(height: 6),
         Text('Amiri Quran · Quranic Arabic typeface', style: TextStyle(fontSize: 12, color: _mutedColor(context), fontWeight: FontWeight.w600)),
@@ -2479,6 +2529,19 @@ class SettingsPage extends StatelessWidget {
     ]);
   }
 }
+
+Widget translationLanguageSelector(BuildContext context, {required String uiLanguage, required String translationLanguage, required ValueChanged<String> onChanged}) => DropdownButtonFormField<String>(
+  key: ValueKey('translation-language-$translationLanguage'),
+  initialValue: translationLanguage,
+  isExpanded: true,
+  decoration: InputDecoration(labelText: uiText(uiLanguage, 'translationLanguage'), prefixIcon: const Icon(Icons.translate_rounded), border: const OutlineInputBorder(), isDense: true),
+  items: [
+    DropdownMenuItem<String>(value: 'ur', child: Text(uiText(uiLanguage, 'urdu'))),
+    DropdownMenuItem<String>(value: 'sd', child: Text(uiText(uiLanguage, 'sindhi'))),
+    DropdownMenuItem<String>(value: 'en', child: Text(uiText(uiLanguage, 'english'))),
+  ],
+  onChanged: (value) { if (value != null) onChanged(value); },
+);
 
 Widget _settingsCard(BuildContext context, {required Widget child}) => Card(
       margin: const EdgeInsets.only(bottom: 13),
