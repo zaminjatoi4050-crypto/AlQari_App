@@ -1,7 +1,7 @@
 name: al_qari
 description: Offline-first full Quran reader and word-analysis companion in English, Urdu, and Sindhi.
 publish_to: "none"
-version: 1.7.0+9
+version: 1.8.0+10
 
 environment:
   sdk: ">=3.10.0 <4.0.0"
@@ -13,7 +13,6 @@ dependencies:
   google_fonts: ^8.2.1
   just_audio: ^0.10.6
   shared_preferences: ^2.3.2
-  scrollable_positioned_list: ^0.3.8
 
 dev_dependencies:
   flutter_test:
