@@ -1117,8 +1117,6 @@ class _HomeShellState extends State<HomeShell> {
             ReaderPage(
               repository: widget.repository,
               language: lang,
-              translationLanguage: _translationLanguage,
-              onTranslationLanguage: _setTranslationLanguage,
               bookmarks: _bookmarks,
               arabicScale: _arabicScale,
               onBookmark: _toggleBookmark,
@@ -1155,8 +1153,6 @@ class _HomeShellState extends State<HomeShell> {
             ),
             SettingsPage(
               language: lang,
-              translationLanguage: _translationLanguage,
-              onTranslationLanguage: _setTranslationLanguage,
               arabicScale: _arabicScale,
               manifest: widget.repository.dataManifest,
               onLanguage: _setLanguage,
@@ -1499,8 +1495,6 @@ class MorePage extends StatelessWidget {
 class ReaderPage extends StatefulWidget {
   final QuranRepository repository;
   final String language;
-  final String translationLanguage;
-  final ValueChanged<String> onTranslationLanguage;
   final Set<String> bookmarks;
   final double arabicScale;
   final Future<void> Function(Ayah) onBookmark;
@@ -1518,8 +1512,6 @@ class ReaderPage extends StatefulWidget {
     super.key,
     required this.repository,
     required this.language,
-    required this.translationLanguage,
-    required this.onTranslationLanguage,
     required this.bookmarks,
     required this.arabicScale,
     required this.onBookmark,
@@ -1674,8 +1666,6 @@ class _ReaderPageState extends State<ReaderPage> {
                 ]),
               ),
           ]),
-          const SizedBox(height: 12),
-          translationLanguageSelector(context, uiLanguage: lang, translationLanguage: widget.translationLanguage, onChanged: widget.onTranslationLanguage),
           const SizedBox(height: 12),
           FilledButton.icon(
             onPressed: widget.onOpenRecitation,
@@ -2412,8 +2402,6 @@ class BookmarksPage extends StatelessWidget {
 
 class SettingsPage extends StatelessWidget {
   final String language;
-  final String translationLanguage;
-  final ValueChanged<String> onTranslationLanguage;
   final double arabicScale;
   final Map<String, dynamic> manifest;
   final ValueChanged<String> onLanguage;
@@ -2426,8 +2414,6 @@ class SettingsPage extends StatelessWidget {
   const SettingsPage({
     super.key,
     required this.language,
-    required this.translationLanguage,
-    required this.onTranslationLanguage,
     required this.arabicScale,
     required this.manifest,
     required this.onLanguage,
@@ -2486,13 +2472,6 @@ class SettingsPage extends StatelessWidget {
               RadioListTile<String>(contentPadding: EdgeInsets.zero, value: entry.$1, title: Text(entry.$2)),
           ]),
         ),
-      ])),
-      _settingsCard(context, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(uiText(language, 'translationLanguage'), style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: scheme.primary)),
-        const SizedBox(height: 8),
-        Text(language == 'ur' ? 'App ki language se alag translation chun sakte hain.' : language == 'sd' ? 'ايپ جي ٻوليءَ کان الڳ ترجمو چونڊي سگھو ٿا.' : 'Choose the verse translation independently of the app interface.', style: TextStyle(color: _mutedColor(context), height: 1.45)),
-        const SizedBox(height: 12),
-        translationLanguageSelector(context, uiLanguage: language, translationLanguage: translationLanguage, onChanged: onTranslationLanguage),
       ])),
       _settingsCard(context, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text(uiText(language, 'arabicSize'), style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: scheme.primary)),
