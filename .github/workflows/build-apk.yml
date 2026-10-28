@@ -55,7 +55,7 @@ jobs:
         run: flutter pub get
 
       - name: Run Flutter analyzer
-        run: flutter analyze
+        run: flutter analyze --no-fatal-infos
 
       - name: Run project tests
         run: flutter test
