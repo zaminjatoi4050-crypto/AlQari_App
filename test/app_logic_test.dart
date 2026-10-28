@@ -79,4 +79,46 @@ void main() {
       throwsA(isA<ArgumentError>()),
     );
   });
+  test('ayah translation follows the selected language independently', () {
+    final ayah = Ayah(
+      surahNumber: 1,
+      number: 1,
+      key: '1:1',
+      arabic: 'بِسْمِ اللَّهِ',
+      translations: const {
+        'en': 'English translation',
+        'ur': 'اردو ترجمہ',
+        'sd': 'سنڌي ترجمو',
+      },
+      juz: 1,
+      page: 1,
+      hizbQuarter: 1,
+      ruku: 1,
+      manzil: 1,
+      sajda: null,
+    );
+
+    expect(ayah.translationFor('en'), 'English translation');
+    expect(ayah.translationFor('ur'), 'اردو ترجمہ');
+    expect(ayah.translationFor('sd'), 'سنڌي ترجمو');
+  });
+
+  test('ayah translation safely falls back to English for an unavailable locale', () {
+    final ayah = Ayah(
+      surahNumber: 1,
+      number: 1,
+      key: '1:1',
+      arabic: 'بِسْمِ اللَّهِ',
+      translations: const {'en': 'English translation', 'ur': 'اردو ترجمہ'},
+      juz: 1,
+      page: 1,
+      hizbQuarter: 1,
+      ruku: 1,
+      manzil: 1,
+      sajda: null,
+    );
+
+    expect(ayah.translationFor('sd'), 'English translation');
+  });
+
 }
