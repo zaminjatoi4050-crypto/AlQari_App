@@ -1747,7 +1747,11 @@ class _RecitationPageState extends State<RecitationPage> {
         ));
       }
       final safeIndex = startIndex.clamp(0, sources.length - 1).toInt();
-      await _player.setAudioSources(sources, initialIndex: safeIndex, initialPosition: Duration.zero, useLazyPreparation: true);
+      await _player.setAudioSources(
+  sources,
+  initialIndex: safeIndex,
+  initialPosition: Duration.zero,
+);
       if (!mounted || generation != _loadGeneration) return;
       _initialized = true;
       setState(() => _loading = false);
