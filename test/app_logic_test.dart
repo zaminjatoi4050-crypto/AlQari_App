@@ -1,13 +1,32 @@
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/services.dart';
 import 'package:al_qari/main.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
 
   test('brand logo asset is bundled with the app', () async {
-    final logo = await rootBundle.load('assets/branding/al_qari_icon.png');
-    expect(logo.lengthInBytes, greaterThan(1024));
+    final ByteData logo;
+
+    try {
+      logo = await rootBundle.load(
+        'assets/branding/al_qari_icon.png',
+      );
+    } catch (error) {
+      fail(
+        'Logo asset could not be loaded. Check pubspec.yaml '
+        'and assets/branding/al_qari_icon.png. Error: $error',
+      );
+    }
+
+    expect(
+      logo.lengthInBytes,
+      greaterThan(1024),
+      reason: 'The logo file must be larger than 1024 bytes.',
+    );
   });
+
   test('Quran text uses an explicit Quran-focused typeface', () {
     expect(quranFontFamily, 'Amiri Quran');
   });
@@ -22,9 +41,18 @@ void main() {
 
   test('multiple supported reciters include well-known editions', () {
     expect(supportedReciters.length, greaterThanOrEqualTo(8));
-    expect(supportedReciters.map((reciter) => reciter.id), contains('ar.alafasy'));
-    expect(supportedReciters.map((reciter) => reciter.id), contains('ar.abdulbasit'));
-    expect(supportedReciters.map((reciter) => reciter.id).toSet().length, supportedReciters.length);
+    expect(
+      supportedReciters.map((reciter) => reciter.id),
+      contains('ar.alafasy'),
+    );
+    expect(
+      supportedReciters.map((reciter) => reciter.id),
+      contains('ar.abdulbasit'),
+    );
+    expect(
+      supportedReciters.map((reciter) => reciter.id).toSet().length,
+      supportedReciters.length,
+    );
   });
 
   test('ayah audio URL uses the global ayah number and edition ID', () {
@@ -35,11 +63,20 @@ void main() {
   });
 
   test('ayah audio URL rejects out-of-range global ayah numbers', () {
-    expect(() => ayahAudioUrl('ar.alafasy', 0), throwsA(isA<RangeError>()));
-    expect(() => ayahAudioUrl('ar.alafasy', 6237), throwsA(isA<RangeError>()));
+    expect(
+      () => ayahAudioUrl('ar.alafasy', 0),
+      throwsA(isA<RangeError>()),
+    );
+    expect(
+      () => ayahAudioUrl('ar.alafasy', 6237),
+      throwsA(isA<RangeError>()),
+    );
   });
 
   test('ayah audio URL rejects unknown reciter editions', () {
-    expect(() => ayahAudioUrl('unknown.edition', 1), throwsA(isA<ArgumentError>()));
+    expect(
+      () => ayahAudioUrl('unknown.edition', 1),
+      throwsA(isA<ArgumentError>()),
+    );
   });
 }
