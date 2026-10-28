@@ -1117,6 +1117,7 @@ class _HomeShellState extends State<HomeShell> {
             ReaderPage(
               repository: widget.repository,
               language: lang,
+              translationLanguage: _translationLanguage,
               bookmarks: _bookmarks,
               arabicScale: _arabicScale,
               onBookmark: _toggleBookmark,
@@ -1495,6 +1496,7 @@ class MorePage extends StatelessWidget {
 class ReaderPage extends StatefulWidget {
   final QuranRepository repository;
   final String language;
+  final String translationLanguage;
   final Set<String> bookmarks;
   final double arabicScale;
   final Future<void> Function(Ayah) onBookmark;
@@ -1512,6 +1514,7 @@ class ReaderPage extends StatefulWidget {
     super.key,
     required this.repository,
     required this.language,
+    required this.translationLanguage,
     required this.bookmarks,
     required this.arabicScale,
     required this.onBookmark,
