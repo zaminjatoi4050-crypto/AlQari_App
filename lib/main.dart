@@ -2218,12 +2218,16 @@ class VerseCard extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final selectedTranslation = translationLanguage ?? language;
     final words = ayah.arabic.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+    // Keep ayat in a continuous Mushaf-like stream rather than separate cards.
     return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      color: scheme.surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-        side: BorderSide(color: isLastRead ? scheme.primary : _borderColor(context), width: isLastRead ? 1.7 : 1),
+      margin: EdgeInsets.zero,
+      elevation: 0,
+      color: Colors.transparent,
+      shape: Border(
+        bottom: BorderSide(
+          color: isLastRead ? scheme.primary : _borderColor(context).withAlpha(100),
+          width: isLastRead ? 1.7 : 0.6,
+        ),
       ),
       child: Padding(
         padding: const EdgeInsets.all(15),
