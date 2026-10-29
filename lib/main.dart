@@ -3241,7 +3241,7 @@ class _QuranTutorPageState extends State<QuranTutorPage> {
   void initState(){super.initState();_messages.add({'role':'assistant','text':uiText(widget.language,'tutorWelcome')});_loadKey();}
   Future<void> _loadKey() async {
     try { final p=await SharedPreferences.getInstance(); final value=p.getString('geminiApiKey')??'';
-      if(mounted)setState(()=>{_apiKey=value,_key.text=value,_keyLoaded=true});
+      if (mounted) setState(() { _apiKey = value; _key.text = value; _keyLoaded = true; });
     } catch (_) {if(mounted)setState(()=>_keyLoaded=true);}
   }
   Future<void> _saveKey() async {
@@ -3251,7 +3251,7 @@ class _QuranTutorPageState extends State<QuranTutorPage> {
   }
   Future<void> _removeKey() async {
     final p=await SharedPreferences.getInstance(); await p.remove('geminiApiKey');
-    if(mounted)setState(()=>{_apiKey='',_key.clear()});
+    if (mounted) setState(() { _apiKey = ''; _key.clear(); });
   }
   List<Ayah> _retrieve(String question) {
     const stop=<String>{'what','when','where','which','with','from','this','that','have','does','about','tell','explain','please','into','the','and','are','for','is','how','why','who','can','you','quran','verse','ayah','surah','ka','ki','ke','kya','hai','hain','aur','mein','mai','mujhe','batao','samjhao','karo','ko','ye','woh'};
@@ -3268,7 +3268,7 @@ class _QuranTutorPageState extends State<QuranTutorPage> {
   }
   Future<void> _ask() async {
     final question=_question.text.trim(); if(question.isEmpty||_busy)return;
-    _question.clear(); setState(()=>{_messages.add({'role':'user','text':question}),_busy=true});
+    _question.clear(); setState(() { _messages.add({'role':'user', 'text': question}); _busy = true; });
     try {
       if(_apiKey.isEmpty)throw Exception('Add your Gemini API key first.');
       final ayat=_retrieve(question);
@@ -3286,8 +3286,8 @@ class _QuranTutorPageState extends State<QuranTutorPage> {
       ).timeout(const Duration(seconds:35));
       if(response.statusCode<200||response.statusCode>=300)throw Exception('Gemini API returned HTTP '+response.statusCode.toString()+'. Check your key and API access.');
       final payload=jsonDecode(response.body) as Map<String,dynamic>;
-      final candidates=payload['candidates'] as List<dynamic>???const [];
-      final parts=candidates.isEmpty?const <dynamic>[]:((candidates.first as Map<String,dynamic>)['content'] as Map<String,dynamic>?)?['parts'] as List<dynamic>???const [];
+      final candidates=payload['candidates'] as List<dynamic>? ?? const [];
+      final parts=candidates.isEmpty?const <dynamic>[]:((candidates.first as Map<String,dynamic>)['content'] as Map<String,dynamic>?)?['parts'] as List<dynamic>? ?? const [];
       var answer=parts.whereType<Map>().map((p)=>p['text']?.toString()??'').where((v)=>v.isNotEmpty).join('\n').trim();
       final allowed=ayat.map((a)=>a.key).toSet();
       answer=answer.replaceAllMapped(RegExp(r'\b([1-9]\d{0,2})\s*:\s*([1-9]\d{0,2})\b'),(m){
@@ -3355,7 +3355,8 @@ class _PrayerTimesPageState extends State<PrayerTimesPage>{
   void initState(){super.initState();restoreLocation();}
   Future<void> restoreLocation()async{
     try{final p=await SharedPreferences.getInstance();final lat=p.getDouble('prayerLatitude'),lon=p.getDouble('prayerLongitude');
-      if(lat==null||lon==null)return;if(mounted)setState(()=>{latitude=lat,longitude=lon});
+      if (lat == null || lon == null) return;
+      if (mounted) setState(() { latitude = lat; longitude = lon; });
       final data=await fetchDays(lat,lon,DateTime.now(),1);if(mounted)setState(()=>todayTimes=data[dateKey(DateTime.now())]??const {});
     }catch(_){}
   }
@@ -3382,10 +3383,10 @@ class _PrayerTimesPageState extends State<PrayerTimesPage>{
     final uri=Uri.https('api.aladhan.com','/v1/calendar/'+year.toString()+'/'+month.toString(),{'latitude':lat.toStringAsFixed(6),'longitude':lon.toStringAsFixed(6),'method':'1','school':'1'});
     final response=await http.get(uri,headers:const {'Accept':'application/json'}).timeout(const Duration(seconds:18));
     if(response.statusCode!=200)throw Exception('Prayer-time service returned HTTP '+response.statusCode.toString()+'.');
-    final data=jsonDecode(response.body) as Map<String,dynamic>;final list=data['data'] as List<dynamic>???const [];
+    final data=jsonDecode(response.body) as Map<String,dynamic>;final list=data['data'] as List<dynamic>? ?? const [];
     final result=<String,Map<String,String>>{};
-    for(final item in list){if(item is! Map<String,dynamic>)continue;final date=item['date'] as Map<String,dynamic>???const {};final greg=date['gregorian'] as Map<String,dynamic>???const {};final day=int.tryParse(greg['day']?.toString()??'');if(day==null)continue;
-      final timings=item['timings'] as Map<String,dynamic>???const {};final parsed=<String,String>{};
+    for(final item in list){if(item is! Map<String,dynamic>)continue;final date=item['date'] as Map<String,dynamic>? ?? const {};final greg=date['gregorian'] as Map<String,dynamic>? ?? const {};final day=int.tryParse(greg['day']?.toString()??'');if(day==null)continue;
+      final timings=item['timings'] as Map<String,dynamic>? ?? const {};final parsed=<String,String>{};
       for(final name in names){final m=RegExp(r'^(\d{1,2}):(\d{2})').firstMatch(timings[name]?.toString()??'');if(m!=null)parsed[name]=m.group(1)!.padLeft(2,'0')+':'+m.group(2)!;}
       result[dateKey(DateTime(year,month,day))]=parsed;
     }
@@ -3399,7 +3400,8 @@ class _PrayerTimesPageState extends State<PrayerTimesPage>{
     return {for(final d in days)if(all.containsKey(dateKey(d)))dateKey(d):all[dateKey(d)]!};
   }
   Future<void> enableAndSchedule()async{
-    if(busy)return;setState(()=>{busy=true,errorText=null,statusText=null});
+    if (busy) return;
+    setState(() { busy = true; errorText = null; statusText = null; });
     try{
       await initNotifications();final pos=await obtainLocation();final lat=pos.latitude,lon=pos.longitude;
       final prefs=await SharedPreferences.getInstance();await prefs.setDouble('prayerLatitude',lat);await prefs.setDouble('prayerLongitude',lon);
@@ -3417,8 +3419,17 @@ class _PrayerTimesPageState extends State<PrayerTimesPage>{
           scheduledCount++;
         }
       }
-      if(mounted)setState(()=>{busy=false,latitude=lat,longitude=lon,todayTimes=todays,statusText:'Scheduled '+scheduledCount.toString()+' reminders for seven days. '+(exactAllowed?'Exact-alarm access is enabled.':'Exact-alarm access is off; Android may delay some alerts.')});
-    }catch(e){if(mounted)setState(()=>{busy=false,errorText=e.toString().replaceFirst('Exception: ','')});}
+      if (mounted) setState(() {
+        busy = false;
+        latitude = lat;
+        longitude = lon;
+        todayTimes = todays;
+        statusText = 'Scheduled ' + scheduledCount.toString() + ' reminders for seven days. ' +
+          (exactAllowed ? 'Exact-alarm access is enabled.' : 'Exact-alarm access is off; Android may delay some alerts.');
+      });
+    } catch (e) {
+      if (mounted) setState(() { busy = false; errorText = e.toString().replaceFirst('Exception: ', ''); });
+    }
   }
   @override
   Widget build(BuildContext context){
