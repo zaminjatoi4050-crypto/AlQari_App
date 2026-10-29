@@ -14,6 +14,9 @@ const Color gold = Color(0xFFD8B56A);
 const Color paper = Color(0xFFF7F5EF);
 const String quranFontFamily = 'Amiri Quran';
 const String appLogoAsset = 'assets/branding/al_qari_icon.png';
+
+/// Shared current ayah key so the Reader can follow the active recitation.
+final ValueNotifier<String?> activeRecitationAyahKey = ValueNotifier<String?>(null);
 const List<Color> appAccentColors = <Color>[
   Color(0xFF236B55), // Forest green
   Color(0xFF0F766E), // Teal
@@ -761,21 +764,122 @@ class _AlQariState extends State<AlQari> {
       );
 }
 
-class _LoadingScreen extends StatelessWidget {
+class _LoadingScreen extends StatefulWidget {
   const _LoadingScreen();
+
+  @override
+  State<_LoadingScreen> createState() => _LoadingScreenState();
+}
+
+class _LoadingScreenState extends State<_LoadingScreen>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _scale;
+  late final Animation<double> _fade;
+  late final Animation<double> _glow;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1450),
+    )..repeat(reverse: true);
+    _scale = Tween<double>(begin: 0.88, end: 1.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOutCubic),
+    );
+    _fade = Tween<double>(begin: 0.72, end: 1.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+    _glow = Tween<double>(begin: 0.12, end: 0.38).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
         backgroundColor: forest,
-        body: Center(
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            alQariBrandMark(size: 90, radius: 24),
-            const SizedBox(height: 18),
-            const Text('AlQari', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: Colors.white)),
-            const SizedBox(height: 10),
-            Text(uiText('en', 'loading'), style: const TextStyle(color: Colors.white70)),
-            const SizedBox(height: 24),
-            const CircularProgressIndicator(color: gold),
-          ]),
+        body: DecoratedBox(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFF0B2922), forest, Color(0xFF205D49)],
+            ),
+          ),
+          child: Center(
+            child: AnimatedBuilder(
+              animation: _controller,
+              builder: (context, child) => Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Opacity(
+                    opacity: _fade.value,
+                    child: Transform.scale(
+                      scale: _scale.value,
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(32),
+                          boxShadow: [
+                            BoxShadow(
+                              color: gold.withAlpha((_glow.value * 255).round()),
+                              blurRadius: 38,
+                              spreadRadius: 3,
+                            ),
+                          ],
+                        ),
+                        child: alQariBrandMark(size: 100, radius: 27),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 22),
+                  const Text(
+                    'AlQari',
+                    style: TextStyle(
+                      fontSize: 30,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.2,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'READ  •  UNDERSTAND  •  REFLECT',
+                    style: TextStyle(
+                      color: Color(0xFFE5D3A4),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.6,
+                    ),
+                  ),
+                  const SizedBox(height: 22),
+                  Text(
+                    uiText('en', 'loading'),
+                    style: const TextStyle(color: Colors.white70, fontSize: 13),
+                  ),
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    width: 120,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(20),
+                      child: const LinearProgressIndicator(
+                        minHeight: 3,
+                        color: gold,
+                        backgroundColor: Color(0x553FFFFFF),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
       );
 }
@@ -1534,6 +1638,7 @@ class ReaderPage extends StatefulWidget {
 }
 
 class _ReaderPageState extends State<ReaderPage> {
+  String? _activeAyahKey;
   late String _mode;
   late int _selectedJuz;
   late int _selectedSurah;
@@ -1546,10 +1651,37 @@ class _ReaderPageState extends State<ReaderPage> {
     _selectedJuz = widget.initialJuz;
     _selectedSurah = widget.initialSurah;
     _scrollController = ScrollController(initialScrollOffset: widget.initialScrollOffset);
+    _activeAyahKey = activeRecitationAyahKey.value;
+    activeRecitationAyahKey.addListener(_onActiveRecitationAyahChanged);
+  }
+
+  void _onActiveRecitationAyahChanged() {
+    final key = activeRecitationAyahKey.value;
+    if (!mounted || key == null || key == _activeAyahKey) return;
+    final ayahs = _visibleAyahs;
+    final index = ayahs.indexWhere((ayah) => ayah.key == key);
+    setState(() => _activeAyahKey = key);
+    if (index >= 0) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !_scrollController.hasClients) return;
+        // Verse rows have variable height; this estimate brings the playing ayah
+        // into view, while keeping the scroll position within valid bounds.
+        final target = (index * 245.0).clamp(
+          0.0,
+          _scrollController.position.maxScrollExtent,
+        );
+        _scrollController.animateTo(
+          target,
+          duration: const Duration(milliseconds: 380),
+          curve: Curves.easeOutCubic,
+        );
+      });
+    }
   }
 
   @override
   void dispose() {
+    activeRecitationAyahKey.removeListener(_onActiveRecitationAyahChanged); {
     _scrollController.dispose();
     super.dispose();
   }
@@ -1692,18 +1824,31 @@ class _ReaderPageState extends State<ReaderPage> {
                   controller: _scrollController,
                   padding: const EdgeInsets.fromLTRB(12, 4, 12, 20),
                   itemCount: ayahs.length,
-                  itemBuilder: (context, index) => VerseCard(
-                    key: ValueKey(ayahs[index].key),
-                    repository: widget.repository,
-                    ayah: ayahs[index],
-                    language: lang,
-                    translationLanguage: widget.translationLanguage,
-                    arabicScale: widget.arabicScale,
-                    isBookmarked: widget.bookmarks.contains(ayahs[index].key),
-                    onBookmark: () => widget.onBookmark(ayahs[index]),
-                    onReadAyah: () => widget.onReadAyah(ayahs[index]),
-                    isLastRead: widget.lastReadKey == ayahs[index].key,
-                  ),
+                  itemBuilder: (context, index) {
+                    final ayah = ayahs[index];
+                    final isPlaying = _activeAyahKey == ayah.key;
+                    return AnimatedContainer(
+                      duration: const Duration(milliseconds: 220),
+                      decoration: BoxDecoration(
+                        color: isPlaying ? gold.withAlpha(34) : Colors.transparent,
+                        borderRadius: BorderRadius.circular(20),
+                        border: isPlaying ? Border.all(color: gold, width: 1.5) : null,
+                      ),
+                      padding: isPlaying ? const EdgeInsets.all(3) : EdgeInsets.zero,
+                      child: VerseCard(
+                        key: ValueKey(ayah.key),
+                        repository: widget.repository,
+                        ayah: ayah,
+                        language: lang,
+                        translationLanguage: widget.translationLanguage,
+                        arabicScale: widget.arabicScale,
+                        isBookmarked: widget.bookmarks.contains(ayah.key),
+                        onBookmark: () => widget.onBookmark(ayah),
+                        onReadAyah: () => widget.onReadAyah(ayah),
+                        isLastRead: widget.lastReadKey == ayah.key,
+                      ),
+                    );
+                  },
                 ),
               ),
       ),
@@ -1782,6 +1927,7 @@ class _RecitationPageState extends State<RecitationPage> {
   @override
   void dispose() {
     unawaited(_errorSubscription.cancel());
+    if (activeRecitationAyahKey.value != null) activeRecitationAyahKey.value = null;
     unawaited(_player.dispose());
     super.dispose();
   }
@@ -1944,6 +2090,13 @@ class _RecitationPageState extends State<RecitationPage> {
                 builder: (context, snapshot) {
                   final index = (snapshot.data ?? 0).clamp(0, _surah.ayahs.length - 1).toInt();
                   final ayah = _surah.ayahs[index];
+                  if (activeRecitationAyahKey.value != ayah.key) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (activeRecitationAyahKey.value != ayah.key) {
+                        activeRecitationAyahKey.value = ayah.key;
+                      }
+                    });
+                  }
                   return Container(
                     padding: const EdgeInsets.all(18),
                     decoration: BoxDecoration(color: _softSurfaceColor(context), borderRadius: BorderRadius.circular(20), border: Border.all(color: outline)),
@@ -2065,12 +2218,16 @@ class VerseCard extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final selectedTranslation = translationLanguage ?? language;
     final words = ayah.arabic.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+    // Keep ayat in a continuous Mushaf-like stream rather than separate cards.
     return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      color: scheme.surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-        side: BorderSide(color: isLastRead ? scheme.primary : _borderColor(context), width: isLastRead ? 1.7 : 1),
+      margin: EdgeInsets.zero,
+      elevation: 0,
+      color: Colors.transparent,
+      shape: Border(
+        bottom: BorderSide(
+          color: isLastRead ? scheme.primary : _borderColor(context).withAlpha(100),
+          width: isLastRead ? 1.7 : 0.6,
+        ),
       ),
       child: Padding(
         padding: const EdgeInsets.all(15),
