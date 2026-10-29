@@ -37,24 +37,27 @@ class QuranReciter {
   final String name;
   final String arabicName;
   final int bitrate;
+  /// Exact EveryAyah folder whose audio has matching word timing annotations.
+  final String? timingFolder;
 
   const QuranReciter({
     required this.id,
     required this.name,
     required this.arabicName,
     required this.bitrate,
+    this.timingFolder,
   });
 }
 
 const List<QuranReciter> supportedReciters = <QuranReciter>[
-  QuranReciter(id: 'ar.alafasy', name: 'Mishary Rashid Alafasy', arabicName: 'مشاري راشد العفاسي', bitrate: 128),
-  QuranReciter(id: 'ar.abdulbasit', name: 'Abdul Basit Abdul Samad · Murattal', arabicName: 'عبد الباسط عبد الصمد', bitrate: 192),
-  QuranReciter(id: 'ar.abdulbasitmujawwad', name: 'Abdul Basit · Mujawwad', arabicName: 'عبد الباسط عبد الصمد', bitrate: 192),
-  QuranReciter(id: 'ar.husary', name: 'Mahmoud Khalil Al-Husary', arabicName: 'محمود خليل الحصري', bitrate: 128),
-  QuranReciter(id: 'ar.minshawi', name: 'Mohamed Siddiq Al-Minshawi · Murattal', arabicName: 'محمد صديق المنشاوي', bitrate: 128),
-  QuranReciter(id: 'ar.minshawimujawwad', name: 'Al-Minshawi · Mujawwad', arabicName: 'محمد صديق المنشاوي', bitrate: 64),
-  QuranReciter(id: 'ar.sudais', name: 'Abdul Rahman Al-Sudais', arabicName: 'عبدالرحمن السديس', bitrate: 192),
-  QuranReciter(id: 'ar.shuraim', name: 'Saud Al-Shuraim', arabicName: 'سعود الشريم', bitrate: 128),
+  QuranReciter(id: 'ar.alafasy', name: 'Mishary Rashid Alafasy', arabicName: 'مشاري راشد العفاسي', bitrate: 128, timingFolder: 'Alafasy_128kbps'),
+  QuranReciter(id: 'ar.abdulbasit', name: 'Abdul Basit Abdul Samad · Murattal', arabicName: 'عبد الباسط عبد الصمد', bitrate: 64, timingFolder: 'Abdul_Basit_Murattal_64kbps'),
+  QuranReciter(id: 'ar.abdulbasitmujawwad', name: 'Abdul Basit · Mujawwad', arabicName: 'عبد الباسط عبد الصمد', bitrate: 128, timingFolder: 'Abdul_Basit_Mujawwad_128kbps'),
+  QuranReciter(id: 'ar.husary', name: 'Mahmoud Khalil Al-Husary', arabicName: 'محمود خليل الحصري', bitrate: 64, timingFolder: 'Husary_64kbps'),
+  QuranReciter(id: 'ar.minshawi', name: 'Mohamed Siddiq Al-Minshawi · Murattal', arabicName: 'محمد صديق المنشاوي', bitrate: 128, timingFolder: 'Minshawy_Murattal_128kbps'),
+  QuranReciter(id: 'ar.minshawimujawwad', name: 'Al-Minshawi · Mujawwad', arabicName: 'محمد صديق المنشاوي', bitrate: 192, timingFolder: 'Minshawy_Mujawwad_192kbps'),
+  QuranReciter(id: 'ar.sudais', name: 'Abdul Rahman Al-Sudais', arabicName: 'عبدالرحمن السديس', bitrate: 192, timingFolder: 'Abdurrahmaan_As-Sudais_192kbps'),
+  QuranReciter(id: 'ar.shuraim', name: 'Saud Al-Shuraim', arabicName: 'سعود الشريم', bitrate: 128, timingFolder: 'Saood_ash-Shuraym_128kbps'),
   QuranReciter(id: 'ar.ajamy', name: 'Ahmed Al-Ajamy', arabicName: 'أحمد العجمي', bitrate: 128),
   QuranReciter(id: 'ar.hudhaify', name: 'Ali Al-Hudhaify', arabicName: 'علي بن عبدالرحمن الحذيفي', bitrate: 128),
 ];
@@ -69,6 +72,99 @@ String ayahAudioUrl(String edition, int globalAyahNumber, {int bitrate = 128}) {
   }
   return 'https://cdn.islamic.network/quran/audio/$bitrate/$edition/$globalAyahNumber.mp3';
 }
+
+/// Returns the exact audio source paired with timing data when available.
+/// EveryAyah's per-ayah filenames use three-digit surah and ayah numbers.
+String recitationAudioUrl(QuranReciter reciter, int surahNumber, int ayahNumber, int globalAyahNumber) {
+  if (surahNumber < 1 || surahNumber > 114 || ayahNumber < 1 || ayahNumber > 286) {
+    throw RangeError('Invalid surah/ayah: $surahNumber:$ayahNumber');
+  }
+  final folder = reciter.timingFolder;
+  if (folder != null) {
+    final surah = surahNumber.toString().padLeft(3, '0');
+    final ayah = ayahNumber.toString().padLeft(3, '0');
+    return 'https://everyayah.com/data/$folder/$surah$ayah.mp3';
+  }
+  return ayahAudioUrl(reciter.id, globalAyahNumber, bitrate: reciter.bitrate);
+}
+
+class RecitationTimingSegment {
+  final int wordStartIndex;
+  final int wordEndIndex;
+  final int startMs;
+  final int endMs;
+
+  const RecitationTimingSegment({
+    required this.wordStartIndex,
+    required this.wordEndIndex,
+    required this.startMs,
+    required this.endMs,
+  });
+
+  factory RecitationTimingSegment.fromList(List<dynamic> values) => RecitationTimingSegment(
+        wordStartIndex: (values[0] as num).toInt(),
+        wordEndIndex: (values[1] as num).toInt(),
+        startMs: (values[2] as num).toInt(),
+        endMs: (values[3] as num).toInt(),
+      );
+}
+
+/// Which word(s) are currently being recited; word indices are zero-based.
+class ActiveRecitationWord {
+  final String ayahKey;
+  final int wordStartIndex;
+  final int wordEndIndex;
+
+  const ActiveRecitationWord({
+    required this.ayahKey,
+    required this.wordStartIndex,
+    required this.wordEndIndex,
+  });
+
+  bool sameAs(ActiveRecitationWord? other) =>
+      other != null &&
+      ayahKey == other.ayahKey &&
+      wordStartIndex == other.wordStartIndex &&
+      wordEndIndex == other.wordEndIndex;
+}
+
+Map<String, List<RecitationTimingSegment>> parseWordTimingData(
+  Map<String, dynamic> root,
+  String edition,
+) {
+  final rawReciters = root['reciters'];
+  if (rawReciters is! Map) return const {};
+  final rawEdition = rawReciters[edition];
+  if (rawEdition is! Map) return const {};
+  final rawVerses = rawEdition['verses'];
+  if (rawVerses is! Map) return const {};
+  final parsed = <String, List<RecitationTimingSegment>>{};
+  for (final entry in rawVerses.entries) {
+    if (entry.value is! List) continue;
+    final segments = <RecitationTimingSegment>[];
+    for (final raw in entry.value as List) {
+      if (raw is! List || raw.length < 4) continue;
+      try {
+        final segment = RecitationTimingSegment.fromList(raw);
+        if (segment.wordStartIndex >= 0 &&
+            segment.wordEndIndex > segment.wordStartIndex &&
+            segment.startMs >= 0 &&
+            segment.endMs > segment.startMs) {
+          segments.add(segment);
+        }
+      } catch (_) {
+        // Skip malformed rows without affecting the remaining timing data.
+      }
+    }
+    if (segments.isNotEmpty) {
+      segments.sort((a, b) => a.startMs.compareTo(b.startMs));
+      parsed[entry.key.toString()] = segments;
+    }
+  }
+  return parsed;
+}
+
+final ValueNotifier<ActiveRecitationWord?> activeRecitationWord = ValueNotifier<ActiveRecitationWord?>(null);
 
 int globalAyahNumberFor(QuranRepository repository, Ayah ayah) {
   final index = repository.allAyahs.indexWhere((candidate) => candidate.key == ayah.key);
