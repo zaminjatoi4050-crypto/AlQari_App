@@ -3135,7 +3135,6 @@ class SettingsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final translations = manifest['translations'] as Map<String, dynamic>? ?? const {};
     final scheme = Theme.of(context).colorScheme;
     return ListView(padding: const EdgeInsets.all(16), children: [
       _settingsCard(context, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
