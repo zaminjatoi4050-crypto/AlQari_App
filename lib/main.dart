@@ -15,6 +15,7 @@ const Color gold = Color(0xFFD8B56A);
 const Color paper = Color(0xFFF7F5EF);
 const String quranFontFamily = 'Amiri Quran';
 const String appLogoAsset = 'assets/branding/al_qari_icon.png';
+const String geminiApiKey = String.fromEnvironment('GEMINI_API_KEY');
 
 /// Shared current ayah key so the Reader can follow the active recitation.
 final ValueNotifier<String?> activeRecitationAyahKey = ValueNotifier<String?>(null);
