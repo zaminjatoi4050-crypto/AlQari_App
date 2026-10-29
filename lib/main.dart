@@ -868,8 +868,9 @@ class _LoadingScreen extends StatefulWidget {
 }
 
 class _LoadingScreenState extends State<_LoadingScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late final AnimationController _controller;
+  late final AnimationController _assemblyController;
   late final Animation<double> _scale;
   late final Animation<double> _fade;
   late final Animation<double> _glow;
@@ -881,6 +882,10 @@ class _LoadingScreenState extends State<_LoadingScreen>
       vsync: this,
       duration: const Duration(milliseconds: 1450),
     )..repeat(reverse: true);
+    _assemblyController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1150),
+    )..forward();
     _scale = Tween<double>(begin: 0.88, end: 1.0).animate(
       CurvedAnimation(parent: _controller, curve: Curves.easeInOutCubic),
     );
@@ -895,8 +900,61 @@ class _LoadingScreenState extends State<_LoadingScreen>
   @override
   void dispose() {
     _controller.dispose();
+    _assemblyController.dispose();
     super.dispose();
   }
+
+  Widget _logoFragment(Alignment alignment, double dx, double dy, double progress) {
+    return Transform.translate(
+      offset: Offset(dx * (1 - progress), dy * (1 - progress)),
+      child: ClipRect(
+        child: SizedBox(
+          width: 50,
+          height: 50,
+          child: Align(
+            alignment: alignment,
+            widthFactor: 0.5,
+            heightFactor: 0.5,
+            child: SizedBox(
+              width: 100,
+              height: 100,
+              child: Image.asset(
+                appLogoAsset,
+                width: 100,
+                height: 100,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => Container(
+                  color: forest,
+                  alignment: Alignment.center,
+                  child: Icon(Icons.menu_book_rounded, color: gold, size: 58),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _assemblingBrandMark() => AnimatedBuilder(
+        animation: _assemblyController,
+        builder: (context, child) {
+          final progress = Curves.easeOutBack.transform(_assemblyController.value).clamp(0.0, 1.0);
+          return SizedBox(
+            width: 100,
+            height: 100,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Positioned(left: 0, top: 0, child: _logoFragment(Alignment.topLeft, -34, -34, progress)),
+                Positioned(right: 0, top: 0, child: _logoFragment(Alignment.topRight, 34, -34, progress)),
+                Positioned(left: 0, bottom: 0, child: _logoFragment(Alignment.bottomLeft, -34, 34, progress)),
+                Positioned(right: 0, bottom: 0, child: _logoFragment(Alignment.bottomRight, 34, 34, progress)),
+              ],
+            ),
+          );
+        },
+      );
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -931,7 +989,7 @@ class _LoadingScreenState extends State<_LoadingScreen>
                             ),
                           ],
                         ),
-                        child: alQariBrandMark(size: 100, radius: 27),
+                        child: _assemblingBrandMark(),
                       ),
                     ),
                   ),
@@ -1735,6 +1793,8 @@ class ReaderPage extends StatefulWidget {
 
 class _ReaderPageState extends State<ReaderPage> {
   String? _activeAyahKey;
+  ActiveRecitationWord? _activeWordRange;
+  final Map<String, GlobalKey> _ayahItemKeys = <String, GlobalKey>{};
   late String _mode;
   late int _selectedJuz;
   late int _selectedSurah;
@@ -1748,36 +1808,61 @@ class _ReaderPageState extends State<ReaderPage> {
     _selectedSurah = widget.initialSurah;
     _scrollController = ScrollController(initialScrollOffset: widget.initialScrollOffset);
     _activeAyahKey = activeRecitationAyahKey.value;
+    _activeWordRange = activeRecitationWord.value;
     activeRecitationAyahKey.addListener(_onActiveRecitationAyahChanged);
+    activeRecitationWord.addListener(_onActiveRecitationWordChanged);
   }
 
   void _onActiveRecitationAyahChanged() {
     final key = activeRecitationAyahKey.value;
-    if (!mounted || key == null || key == _activeAyahKey) return;
-    final ayahs = _visibleAyahs;
-    final index = ayahs.indexWhere((ayah) => ayah.key == key);
-    setState(() => _activeAyahKey = key);
-    if (index >= 0) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted || !_scrollController.hasClients) return;
-        // Verse rows have variable height; this estimate brings the playing ayah
-        // into view, while keeping the scroll position within valid bounds.
-        final target = (index * 245.0).clamp(
-          0.0,
-          _scrollController.position.maxScrollExtent,
-        );
-        _scrollController.animateTo(
-          target,
-          duration: const Duration(milliseconds: 380),
-          curve: Curves.easeOutCubic,
-        );
+    if (!mounted || key == null) return;
+
+    final index = _visibleAyahs.indexWhere((ayah) => ayah.key == key);
+    if (index < 0) {
+      final parts = key.split(':');
+      final surahNumber = parts.length == 2 ? int.tryParse(parts[0]) : null;
+      if (surahNumber == null || surahNumber < 1 || surahNumber > 114) return;
+      if (_activeAyahKey == key && _mode == 'surah' && _selectedSurah == surahNumber) return;
+      _ayahItemKeys.clear();
+      setState(() {
+        _activeAyahKey = key;
+        _mode = 'surah';
+        _selectedSurah = surahNumber;
       });
+      widget.onScrollOffsetChanged(0);
+      widget.onLocationChanged('surah', surahNumber, _selectedJuz);
+    } else {
+      if (key == _activeAyahKey) return;
+      setState(() => _activeAyahKey = key);
     }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scrollToAyah(key);
+    });
+  }
+
+  void _onActiveRecitationWordChanged() {
+    final next = activeRecitationWord.value;
+    if (!mounted || (_activeWordRange?.sameAs(next) ?? next == null)) return;
+    setState(() => _activeWordRange = next);
+  }
+
+  Future<void> _scrollToAyah(String key) async {
+    if (!mounted) return;
+    final targetContext = _ayahItemKeys[key]?.currentContext;
+    if (targetContext == null) return;
+    await Scrollable.ensureVisible(
+      targetContext,
+      duration: const Duration(milliseconds: 420),
+      alignment: 0.12,
+      curve: Curves.easeInOutCubic,
+    );
   }
 
   @override
   void dispose() {
     activeRecitationAyahKey.removeListener(_onActiveRecitationAyahChanged);
+    activeRecitationWord.removeListener(_onActiveRecitationWordChanged);
     _scrollController.dispose();
     super.dispose();
   }
@@ -1804,6 +1889,7 @@ class _ReaderPageState extends State<ReaderPage> {
   }
 
   void _changeLocation({String? mode, int? surah, int? juz}) {
+    _ayahItemKeys.clear();
     setState(() {
       if (mode != null) _mode = mode;
       if (surah != null) _selectedSurah = surah;
@@ -1916,35 +2002,35 @@ class _ReaderPageState extends State<ReaderPage> {
                   }
                   return false;
                 },
-                child: ListView.builder(
+                child: ListView(
                   controller: _scrollController,
                   padding: const EdgeInsets.fromLTRB(12, 4, 12, 20),
-                  itemCount: ayahs.length,
-                  itemBuilder: (context, index) {
-                    final ayah = ayahs[index];
-                    final isPlaying = _activeAyahKey == ayah.key;
-                    return AnimatedContainer(
-                      duration: const Duration(milliseconds: 220),
-                      decoration: BoxDecoration(
-                        color: isPlaying ? gold.withAlpha(34) : Colors.transparent,
-                        borderRadius: BorderRadius.circular(20),
-                        border: isPlaying ? Border.all(color: gold, width: 1.5) : null,
+                  children: [
+                    for (final ayah in ayahs)
+                      AnimatedContainer(
+                        key: _ayahItemKeys.putIfAbsent(ayah.key, GlobalKey.new),
+                        duration: const Duration(milliseconds: 180),
+                        decoration: BoxDecoration(
+                          color: _activeAyahKey == ayah.key ? gold.withAlpha(34) : Colors.transparent,
+                          borderRadius: BorderRadius.circular(20),
+                          border: _activeAyahKey == ayah.key ? Border.all(color: gold, width: 1.5) : null,
+                        ),
+                        padding: _activeAyahKey == ayah.key ? const EdgeInsets.all(3) : EdgeInsets.zero,
+                        child: VerseCard(
+                          key: ValueKey(ayah.key),
+                          repository: widget.repository,
+                          ayah: ayah,
+                          language: lang,
+                          translationLanguage: widget.translationLanguage,
+                          arabicScale: widget.arabicScale,
+                          isBookmarked: widget.bookmarks.contains(ayah.key),
+                          onBookmark: () => widget.onBookmark(ayah),
+                          onReadAyah: () => widget.onReadAyah(ayah),
+                          isLastRead: widget.lastReadKey == ayah.key,
+                          activeWordRange: _activeWordRange,
+                        ),
                       ),
-                      padding: isPlaying ? const EdgeInsets.all(3) : EdgeInsets.zero,
-                      child: VerseCard(
-                        key: ValueKey(ayah.key),
-                        repository: widget.repository,
-                        ayah: ayah,
-                        language: lang,
-                        translationLanguage: widget.translationLanguage,
-                        arabicScale: widget.arabicScale,
-                        isBookmarked: widget.bookmarks.contains(ayah.key),
-                        onBookmark: () => widget.onBookmark(ayah),
-                        onReadAyah: () => widget.onReadAyah(ayah),
-                        isLastRead: widget.lastReadKey == ayah.key,
-                      ),
-                    );
-                  },
+                  ],
                 ),
               ),
       ),
