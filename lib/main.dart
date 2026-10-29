@@ -61,7 +61,7 @@ const List<QuranReciter> supportedReciters = <QuranReciter>[
   QuranReciter(id: 'ar.minshawimujawwad', name: 'Al-Minshawi · Mujawwad', arabicName: 'محمد صديق المنشاوي', bitrate: 192, timingFolder: 'Minshawy_Mujawwad_192kbps'),
   QuranReciter(id: 'ar.sudais', name: 'Abdul Rahman Al-Sudais', arabicName: 'عبدالرحمن السديس', bitrate: 192, timingFolder: 'Abdurrahmaan_As-Sudais_192kbps'),
   QuranReciter(id: 'ar.shuraim', name: 'Saud Al-Shuraim', arabicName: 'سعود الشريم', bitrate: 128, timingFolder: 'Saood_ash-Shuraym_128kbps'),
-  QuranReciter(id: 'ar.ajamy', name: 'Ahmed Al-Ajamy', arabicName: 'أحمد العجمي', bitrate: 128, everyAyahFolder: 'Ahmed_ibn_Ali_al-Ajamy_128kbps'),
+  QuranReciter(id: 'ar.ajamy', name: 'Ahmed Al-Ajamy', arabicName: 'أحمد العجمي', bitrate: 128, everyAyahFolder: 'ahmed_ibn_ali_al_ajamy_128kbps'),
   QuranReciter(id: 'ar.hudhaify', name: 'Ali Al-Hudhaify', arabicName: 'علي بن عبدالرحمن الحذيفي', bitrate: 128),
 ];
 
