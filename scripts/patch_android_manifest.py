@@ -122,6 +122,13 @@ if len(adhan_bytes) < 200000 or hashlib.sha1(adhan_bytes).hexdigest() != "a1fa4f
 raw_dir = ROOT / "android/app/src/main/res/raw"
 raw_dir.mkdir(parents=True, exist_ok=True)
 (raw_dir / "adhan.ogg").write_bytes(adhan_bytes)
+# The Flutter notification plugin looks the sound up dynamically by resource name.
+# Keep it even if a release build enables resource shrinking.
+(raw_dir / "keep_alqari.xml").write_text("""<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools" tools:keep="@raw/adhan" />
+""", encoding="utf-8")
+if (raw_dir / "adhan.ogg").stat().st_size < 200000:
+    raise SystemExit("The Adhan notification resource was not written completely.")
 print("Background audio, location permissions, scheduled notifications and CC0 Adhan installed.")
 
 # Flutter's Android scaffold is freshly generated in CI, so install our icon
