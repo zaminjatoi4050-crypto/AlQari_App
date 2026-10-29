@@ -75,6 +75,25 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+      - name: Package complete updated source project
+        shell: bash
+        run: |
+          zip -r AlQariApp-Updated-Source.zip . \
+            -x '.git/*' './.git/*' \
+               '.dart_tool/*' './.dart_tool/*' \
+               'build/*' './build/*' \
+               'android/.gradle/*' './android/.gradle/*' \
+               'android/local.properties' './android/local.properties' \
+               'AlQariApp-Updated-Source.zip'
+
+      - name: Upload complete source ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: AlQari-Updated-Source-ZIP
+          path: AlQariApp-Updated-Source.zip
+          if-no-files-found: error
+          retention-days: 30
+
       - name: Upload data manifest for provenance
         uses: actions/upload-artifact@v4
         with:
