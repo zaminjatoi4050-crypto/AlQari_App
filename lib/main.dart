@@ -2239,7 +2239,7 @@ class _RecitationPageState extends State<RecitationPage> {
     _indexSubscription = _player.currentIndexStream.listen((_) {
       // Each playlist intentionally contains only the current ayah. The
       // player's sequence index is therefore always 0 and must not replace
-      // our Surah-relative ayah index, which advances after translation TTS.
+      // our Surah-relative ayah index, which advances after recorded Urdu audio.
       _currentPosition = Duration.zero;
       _syncCurrentRecitationPosition();
     });
