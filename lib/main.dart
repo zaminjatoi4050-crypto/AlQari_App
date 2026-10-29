@@ -3201,7 +3201,7 @@ class SettingsPage extends StatelessWidget {
         _sourceEntry(context, 'Adhan recording', 'Beautiful adhan.ogg by Adam-synagda, Wikimedia Commons, CC0 1.0: https://commons.wikimedia.org/wiki/File:Beautiful_adhan.ogg.'),
         _sourceEntry(context, 'App feature libraries', 'Background audio uses just_audio_background and audio_service. Prayer notifications and device location use Flutter plugins.'),
         const SizedBox(height: 12),
-        for (final lang in ['en', 'ur', 'sd']) if (translations[lang] is Map<String, dynamic>) ...[
+        for (final lang in ['ur']) if (translations[lang] is Map<String, dynamic>) ...[
           Text('${lang.toUpperCase()}: ${(translations[lang] as Map<String, dynamic>)['identifier'] ?? ''}', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
           Text('${(translations[lang] as Map<String, dynamic>)['translator'] ?? ''} · ${(translations[lang] as Map<String, dynamic>)['version'] ?? ''}', style: TextStyle(fontSize: 12, color: _mutedColor(context))),
           const SizedBox(height: 4),
