@@ -3414,8 +3414,8 @@ class _PrayerTimesPageState extends State<PrayerTimesPage>{
           final parts=(timings[names[i]]??'').split(':');if(parts.length!=2)continue;final hour=int.tryParse(parts[0]),minute=int.tryParse(parts[1]);if(hour==null||minute==null)continue;
           final when=tz.TZDateTime(tz.local,date.year,date.month,date.day,hour,minute);if(!when.isAfter(now))continue;final label=uiText(widget.language,keys[i]);final id=baseId+offset*5+i;
           const details=NotificationDetails(android:AndroidNotificationDetails('alqari_prayer_azan_v1','Prayer time Adhan',channelDescription:'Prayer reminders with Adhan notification audio.',importance:Importance.max,priority:Priority.high,playSound:true,sound:RawResourceAndroidNotificationSound('adhan'),enableVibration:true,visibility:NotificationVisibility.public));
-          try{await notifications.zonedSchedule(id,'AlQari · '+label,'It is time for '+label+' prayer.',when,details,androidScheduleMode:mode);}
-          catch(_){await notifications.zonedSchedule(id,'AlQari · '+label,'It is time for '+label+' prayer.',when,details,androidScheduleMode:AndroidScheduleMode.inexactAllowWhileIdle);}
+          try{await notifications.zonedSchedule(id: id, title: 'AlQari · ' + label, body: 'It is time for ' + label + ' prayer.', scheduledDate: when, notificationDetails: details, androidScheduleMode: mode);}
+          catch(_){await notifications.zonedSchedule(id: id, title: 'AlQari · ' + label, body: 'It is time for ' + label + ' prayer.', scheduledDate: when, notificationDetails: details, androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle);}
           scheduledCount++;
         }
       }
