@@ -155,6 +155,14 @@ void main() {
     expect(ayah.translationFor('sd'), 'سنڌي ترجمو');
   });
 
+  test('new audit feature labels are present for all supported UI languages', () {
+    expect(uiText('en', 'wordAnalysis'), 'Quranic Linguistics');
+    expect(uiText('ur', 'quranTutor'), isNotEmpty);
+    expect(uiText('sd', 'quranTutor'), isNotEmpty);
+    expect(uiText('ur', 'prayerTimes'), isNotEmpty);
+    expect(uiText('sd', 'prayerReminderNote'), isNotEmpty);
+  });
+
   test('ayah translation safely falls back to English for an unavailable locale', () {
     const ayah = Ayah(
       surahNumber: 1,

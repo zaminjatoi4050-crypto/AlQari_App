@@ -104,9 +104,13 @@ for gradle_name in ("android/app/build.gradle.kts", "android/app/build.gradle"):
     match = re.search(r"compileOptions\s*\{", gradle)
     if match and "CoreLibraryDesugaringEnabled" not in gradle and "coreLibraryDesugaringEnabled" not in gradle:
         gradle = gradle[:match.end()] + "\n        " + desugaring + gradle[match.end():]
-    match = re.search(r"dependencies\s*\{", gradle)
-    if match and "desugar_jdk_libs" not in gradle:
-        gradle = gradle[:match.end()] + "\n    " + dependency + gradle[match.end():]
+    if "desugar_jdk_libs" not in gradle:
+        match = re.search(r"dependencies\s*\{", gradle)
+        if match:
+            gradle = gradle[:match.end()] + "\n    " + dependency + gradle[match.end():]
+        else:
+            # New Flutter scaffold templates may omit an empty dependencies block.
+            gradle = gradle.rstrip() + "\n\ndependencies {\n    " + dependency + "\n}\n"
     gradle_path.write_text(gradle, encoding="utf-8")
 
 adhan_url = "https://upload.wikimedia.org/wikipedia/commons/b/b0/Beautiful_adhan.ogg"

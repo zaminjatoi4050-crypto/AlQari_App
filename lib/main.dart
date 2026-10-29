@@ -3212,6 +3212,7 @@ class SettingsPage extends StatelessWidget {
         _sourceEntry(context, 'Arabic morphology', 'Quranic Arabic Corpus / mustafa0x/quran-morphology. Source morphology data is included verbatim with attribution.'),
         _sourceEntry(context, 'Prayer times', 'AlAdhan Prayer Times API, method 1 (University of Islamic Sciences, Karachi), using device location. Check your local mosque timetable if local practice differs.'),
         _sourceEntry(context, 'Adhan recording', 'Beautiful adhan.ogg by Adam-synagda, Wikimedia Commons, CC0 1.0: https://commons.wikimedia.org/wiki/File:Beautiful_adhan.ogg.'),
+        _sourceEntry(context, 'App feature libraries', 'Background media: just_audio_background / audio_service (MIT). Notifications: flutter_local_notifications (BSD-3-Clause). Location: geolocator (MIT). Time-zone handling: flutter_timezone (Apache-2.0) and timezone (BSD-2-Clause). AI tutoring uses Google Gemini API; the user supplies the key.'),
         const SizedBox(height: 12),
         for (final lang in ['en', 'ur', 'sd']) if (translations[lang] is Map<String, dynamic>) ...[
           Text('${lang.toUpperCase()}: ${(translations[lang] as Map<String, dynamic>)['identifier'] ?? ''}', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
