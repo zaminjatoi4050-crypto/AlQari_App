@@ -12,6 +12,8 @@ import json
 import re
 import sys
 import time
+import io
+import zipfile
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -24,6 +26,17 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
 ALQURAN = "https://api.alquran.cloud/v1"
 MORPHOLOGY_URL = "https://raw.githubusercontent.com/mustafa0x/quran-morphology/master/quran-morphology.txt"
 MORPHOLOGY_LICENSE_URL = "https://corpus.quran.com/download/"
+WORD_TIMINGS_ARCHIVE_URL = "https://github.com/cpfair/quran-align/releases/download/release-2016-11-24/quran-align-data-2016-11-24.zip"
+WORD_TIMING_RECITERS = {
+    "ar.alafasy": "Alafasy_128kbps",
+    "ar.abdulbasit": "Abdul_Basit_Murattal_64kbps",
+    "ar.abdulbasitmujawwad": "Abdul_Basit_Mujawwad_128kbps",
+    "ar.husary": "Husary_64kbps",
+    "ar.minshawi": "Minshawy_Murattal_128kbps",
+    "ar.minshawimujawwad": "Minshawy_Mujawwad_192kbps",
+    "ar.sudais": "Abdurrahmaan_As-Sudais_192kbps",
+    "ar.shuraim": "Saood_ash-Shuraym_128kbps",
+}
 USER_AGENT = "AlQariEducationalBuild/1.0 (full-data-fetcher)"
 
 
@@ -243,6 +256,106 @@ def download_morphology() -> tuple[Path, int]:
     return target, records
 
 
+def _timing_rows(payload: Any) -> list[dict[str, Any]]:
+    if isinstance(payload, list):
+        return [row for row in payload if isinstance(row, dict)]
+    if isinstance(payload, dict):
+        for key in ("data", "verses", "timings", "items"):
+            value = payload.get(key)
+            if isinstance(value, list):
+                return [row for row in value if isinstance(row, dict)]
+        if {"surah", "ayah", "segments"}.issubset(payload):
+            return [payload]
+    return []
+
+
+def download_word_timings() -> tuple[Path, dict[str, int]]:
+    """Fetch licensed word-level timestamps from cpfair/quran-align."""
+    print("Fetching word-level recitation timing data...")
+    archive_bytes = fetch_bytes(WORD_TIMINGS_ARCHIVE_URL)
+    reciters_out: dict[str, Any] = {}
+    counts: dict[str, int] = {}
+
+    with zipfile.ZipFile(io.BytesIO(archive_bytes)) as archive:
+        names = [n for n in archive.namelist() if not n.endswith("/") and n.lower().endswith(".json")]
+        if not names:
+            raise RuntimeError("Word-timing archive contains no JSON files")
+
+        for edition, folder in WORD_TIMING_RECITERS.items():
+            token = re.sub(r"[^a-z0-9]", "", folder.lower())
+            candidates = [name for name in names if token in re.sub(r"[^a-z0-9]", "", name.lower())]
+            if not candidates:
+                if edition == "ar.alafasy":
+                    raise RuntimeError(f"Required Alafasy timing file ({folder}) is missing. JSON entries: {', '.join(names[:25])}")
+                print(f"  Warning: no timestamp file found for {edition}; word sync skipped for this edition.")
+                continue
+
+            by_verse: dict[str, list[list[int]]] = {}
+            for name in candidates:
+                payload = json.loads(archive.read(name).decode("utf-8-sig"))
+                for row in _timing_rows(payload):
+                    try:
+                        surah = int(row["surah"])
+                        ayah = int(row["ayah"])
+                        segments = row["segments"]
+                    except (KeyError, TypeError, ValueError):
+                        continue
+                    if not 1 <= surah <= 114 or not 1 <= ayah <= 286 or not isinstance(segments, list):
+                        continue
+                    clean: list[list[int]] = []
+                    for segment in segments:
+                        if not isinstance(segment, (list, tuple)) or len(segment) < 4:
+                            continue
+                        try:
+                            start_word, end_word, start_ms, end_ms = map(int, segment[:4])
+                        except (TypeError, ValueError):
+                            continue
+                        if start_word < 0 or end_word <= start_word or start_ms < 0 or end_ms <= start_ms:
+                            continue
+                        clean.append([start_word, end_word, start_ms, end_ms])
+                    if clean:
+                        by_verse[f"{surah}:{ayah}"] = sorted(clean, key=lambda s: (s[2], s[3]))
+
+            if len(by_verse) < 6000:
+                if edition == "ar.alafasy":
+                    raise RuntimeError(f"Alafasy timings are incomplete: {len(by_verse)} verse records; expected at least 6,000.")
+                print(f"  Warning: incomplete {edition} timing data ({len(by_verse)} verses); skipping this edition.")
+                continue
+
+            reciters_out[edition] = {
+                "folder": folder,
+                "timingUnit": "milliseconds",
+                "wordIndexBase": 0,
+                "endWordExclusive": True,
+                "verses": by_verse,
+            }
+            counts[edition] = len(by_verse)
+            print(f"  Validated {edition}: {len(by_verse):,} verse timing records")
+
+    if "ar.alafasy" not in reciters_out:
+        raise RuntimeError("Required default-reciter word timing data is unavailable")
+    result = {
+        "schemaVersion": 1,
+        "source": "cpfair/quran-align, release-2016-11-24",
+        "sourceUrl": WORD_TIMINGS_ARCHIVE_URL,
+        "license": "Creative Commons Attribution 4.0 International (CC BY 4.0)",
+        "timingUnit": "milliseconds",
+        "reciters": reciters_out,
+    }
+    target = DATA_DIR / "word_timings.json"
+    target.write_text(json.dumps(result, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    (DATA_DIR / "word_timings_LICENSE.txt").write_text(
+        "Word-level Quran recitation timestamps from cpfair/quran-align; licensed under "
+        "Creative Commons Attribution 4.0 International (CC BY 4.0). Source: "
+        "https://github.com/cpfair/quran-align ; dataset release: "
+        "https://github.com/cpfair/quran-align/releases/tag/release-2016-11-24 . "
+        "Recordings are not included and remain subject to upstream provider terms.\n",
+        encoding="utf-8",
+    )
+    print(f"Saved word timing data: {target} ({target.stat().st_size:,} bytes; {len(counts)} reciters)")
+    return target, counts
+
+
 def main() -> None:
     print("AlQari full Quran data builder")
     print("Fetching Arabic Quran text...")
@@ -261,6 +374,7 @@ def main() -> None:
     out_path.write_text(json.dumps(complete, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     print(f"Wrote complete Quran data: {out_path} ({out_path.stat().st_size:,} bytes)")
     morph_path, morph_records = download_morphology()
+    timing_path, timing_counts = download_word_timings()
     manifest = {
         "app": "AlQari",
         "status": "complete-quran-bundle",
@@ -268,16 +382,20 @@ def main() -> None:
         "counts": {**complete["counts"], "morphologySegments": morph_records},
         "translations": edition_info,
         "morphologySource": MORPHOLOGY_URL,
+        "wordTimingSource": WORD_TIMINGS_ARCHIVE_URL,
+        "wordTimingCounts": timing_counts,
         "morphologyLicenseReference": MORPHOLOGY_LICENSE_URL,
         "attributions": [
             "Quran text: Tanzil Project (https://tanzil.net/) — preserve the source text verbatim and retain attribution.",
             "Translation editions and translator identifiers are listed in this manifest; see AlQuran Cloud terms and translation rights.",
             "Word morphology: Quranic Arabic Corpus / mustafa0x/quran-morphology. The morphology source file is bundled verbatim at assets/data/quran-morphology.txt.",
             "Word-by-word gloss lookup: Quran Foundation API (https://api.quran.com/), requested online at runtime; not part of the bundled verse corpus.",
+            "Word-level recitation timestamps: cpfair/quran-align (https://github.com/cpfair/quran-align), release-2016-11-24, licensed CC BY 4.0; audio recordings are streamed separately and are not bundled.",
         ],
     }
     (DATA_DIR / "data_manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"Saved morphology source file ({morph_path.stat().st_size:,} bytes; {morph_records:,} records)")
+    print(f"Saved timing asset ({timing_path.stat().st_size:,} bytes; {len(timing_counts)} reciters with validated timing data)")
     print("Data validation passed: 114 surahs, 6,236 ayat, three translations and full morphology source.")
 
 
