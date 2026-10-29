@@ -64,6 +64,23 @@ void main() {
     );
   });
 
+  test('human-recorded Urdu translation uses the matching Surah and Ayah file', () {
+    expect(
+      spokenUrduTranslationAudioUrl(1, 1),
+      'https://verse.mp3quran.net/data/Urdu%29%20Shamshad%20Ali%20Khan/001001.mp3',
+    );
+    expect(
+      spokenUrduTranslationAudioUrl(2, 14),
+      'https://verse.mp3quran.net/data/Urdu%29%20Shamshad%20Ali%20Khan/002014.mp3',
+    );
+    expect(
+      spokenUrduTranslationAudioUrl(114, 6),
+      'https://verse.mp3quran.net/data/Urdu%29%20Shamshad%20Ali%20Khan/114006.mp3',
+    );
+    expect(() => spokenUrduTranslationAudioUrl(0, 1), throwsA(isA<RangeError>()));
+    expect(() => spokenUrduTranslationAudioUrl(1, 287), throwsA(isA<RangeError>()));
+  });
+
   test('timed reciters use audio files paired with their word timings', () {
     expect(
       recitationAudioUrl(supportedReciters.first, 1, 1, 1),
@@ -131,7 +148,7 @@ void main() {
       throwsA(isA<ArgumentError>()),
     );
   });
-  test('ayah translation follows the selected language independently', () {
+  test('Quran translation stays Urdu-only regardless of app UI language', () {
     const ayah = Ayah(
       surahNumber: 1,
       number: 1,
@@ -150,26 +167,24 @@ void main() {
       sajda: null,
     );
 
-    expect(ayah.translationFor('en'), 'English translation');
+    expect(ayah.translationFor('en'), 'اردو ترجمہ');
     expect(ayah.translationFor('ur'), 'اردو ترجمہ');
-    expect(ayah.translationFor('sd'), 'سنڌي ترجمو');
+    expect(ayah.translationFor('sd'), 'اردو ترجمہ');
   });
 
-  test('new audit feature labels are present for all supported UI languages', () {
+  test('Quranic linguistics and prayer labels are present without AI Tutor', () {
     expect(uiText('en', 'wordAnalysis'), 'Quranic Linguistics');
-    expect(uiText('ur', 'quranTutor'), isNotEmpty);
-    expect(uiText('sd', 'quranTutor'), isNotEmpty);
     expect(uiText('ur', 'prayerTimes'), isNotEmpty);
     expect(uiText('sd', 'prayerReminderNote'), isNotEmpty);
   });
 
-  test('ayah translation safely falls back to English for an unavailable locale', () {
+  test('Urdu translation remains available when the old localized field is absent', () {
     const ayah = Ayah(
       surahNumber: 1,
       number: 1,
       key: '1:1',
       arabic: 'بِسْمِ اللَّهِ',
-      translations: {'en': 'English translation', 'ur': 'اردو ترجمہ'},
+      translations: {'ur': 'اردو ترجمہ'},
       juz: 1,
       page: 1,
       hizbQuarter: 1,
@@ -178,7 +193,8 @@ void main() {
       sajda: null,
     );
 
-    expect(ayah.translationFor('sd'), 'English translation');
+    expect(ayah.translationFor('sd'), 'اردو ترجمہ');
+    expect(ayah.translationFor('en'), 'اردو ترجمہ');
   });
 
 }
