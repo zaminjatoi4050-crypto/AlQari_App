@@ -2204,7 +2204,7 @@ class _RecitationPageState extends State<RecitationPage> {
   bool _loading = false;
   bool _initialized = false;
   bool _advancingSurah = false;
-  bool _translationSpeaking = false;
+  bool _translationAudioPlaying = false;
   bool _manualNavigation = false;
   String? _error;
   int _loadGeneration = 0;
@@ -2223,7 +2223,7 @@ class _RecitationPageState extends State<RecitationPage> {
     _translationTts = FlutterTts();
     _translationTts.setCompletionHandler(() {
       if (!mounted || !_translationSpeaking) return;
-      _translationSpeaking = false;
+      _translationAudioPlaying = false;
       unawaited(_playNextAyahAfterTranslation());
     });
     _translationTts.setErrorHandler((message) {
@@ -2334,23 +2334,41 @@ class _RecitationPageState extends State<RecitationPage> {
   }
 
   Future<void> _onAyahAudioCompleted() async {
-    if (!mounted || !_initialized || _loading || _translationSpeaking || _manualNavigation) return;
+    if (!mounted || !_initialized || _loading || _manualNavigation) return;
+
+    // Same player streams Arabic recitation and a human-recorded Urdu translation.
+    // Move forward only after both recordings have completed.
+    if (_translationAudioPlaying) {
+      _translationAudioPlaying = false;
+      await _playNextAyahAfterTranslation();
+      return;
+    }
+
     final surah = widget.repository.surah(_selectedSurah);
     if (surah == null || _currentPlaylistIndex < 0 || _currentPlaylistIndex >= surah.ayahs.length) return;
     final ayah = surah.ayahs[_currentPlaylistIndex];
-    final translation = ayah.translationFor(widget.translationLanguage).trim();
-    if (translation.isEmpty) { await _playNextAyahAfterTranslation(); return; }
-    _translationSpeaking = true;
+    _translationAudioPlaying = true;
+    activeRecitationWord.value = null;
+    if (activeRecitationAyahKey.value != ayah.key) activeRecitationAyahKey.value = ayah.key;
+
     try {
-      await _translationTts.stop();
-      final ttsLanguage = switch (widget.translationLanguage) { 'ur' => 'ur-PK', 'sd' => 'sd-PK', _ => 'en-US' };
-      await _translationTts.setLanguage(ttsLanguage);
-      await _translationTts.setSpeechRate(0.46);
-      await _translationTts.setPitch(1.0);
-      await _translationTts.speak(translation);
-    } catch (_) {
-      _translationSpeaking = false;
-      await _playNextAyahAfterTranslation();
+      await _player.setAudioSources([
+        AudioSource.uri(
+          Uri.parse(spokenUrduTranslationAudioUrl(surah.number, ayah.number)),
+          tag: MediaItem(
+            id: 'urdu-translation-' + ayah.key,
+            album: 'AlQari Urdu translation audio',
+            title: 'Urdu translation ' + surah.nameEnglish + ' Ayah ' + ayah.number.toString(),
+            artist: 'Shamshad Ali Khan',
+          ),
+        ),
+      ]);
+      if (!mounted || _manualNavigation) return;
+      unawaited(_player.play());
+    } catch (error) {
+      _translationAudioPlaying = false;
+      if (!mounted) return;
+      setState(() => _error = 'Recorded Urdu translation audio could not be loaded. Check internet and try again. ' + error.toString());
     }
   }
 
