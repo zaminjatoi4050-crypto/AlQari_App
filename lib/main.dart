@@ -14,6 +14,9 @@ const Color gold = Color(0xFFD8B56A);
 const Color paper = Color(0xFFF7F5EF);
 const String quranFontFamily = 'Amiri Quran';
 const String appLogoAsset = 'assets/branding/al_qari_icon.png';
+
+/// Shared current ayah key so the Reader can follow the active recitation.
+final ValueNotifier<String?> activeRecitationAyahKey = ValueNotifier<String?>(null);
 const List<Color> appAccentColors = <Color>[
   Color(0xFF236B55), // Forest green
   Color(0xFF0F766E), // Teal
@@ -1635,6 +1638,7 @@ class ReaderPage extends StatefulWidget {
 }
 
 class _ReaderPageState extends State<ReaderPage> {
+  String? _activeAyahKey;
   late String _mode;
   late int _selectedJuz;
   late int _selectedSurah;
@@ -1647,10 +1651,37 @@ class _ReaderPageState extends State<ReaderPage> {
     _selectedJuz = widget.initialJuz;
     _selectedSurah = widget.initialSurah;
     _scrollController = ScrollController(initialScrollOffset: widget.initialScrollOffset);
+    _activeAyahKey = activeRecitationAyahKey.value;
+    activeRecitationAyahKey.addListener(_onActiveRecitationAyahChanged);
+  }
+
+  void _onActiveRecitationAyahChanged() {
+    final key = activeRecitationAyahKey.value;
+    if (!mounted || key == null || key == _activeAyahKey) return;
+    final ayahs = _visibleAyahs;
+    final index = ayahs.indexWhere((ayah) => ayah.key == key);
+    setState(() => _activeAyahKey = key);
+    if (index >= 0) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !_scrollController.hasClients) return;
+        // Verse rows have variable height; this estimate brings the playing ayah
+        // into view, while keeping the scroll position within valid bounds.
+        final target = (index * 245.0).clamp(
+          0.0,
+          _scrollController.position.maxScrollExtent,
+        );
+        _scrollController.animateTo(
+          target,
+          duration: const Duration(milliseconds: 380),
+          curve: Curves.easeOutCubic,
+        );
+      });
+    }
   }
 
   @override
   void dispose() {
+    activeRecitationAyahKey.removeListener(_onActiveRecitationAyahChanged); {
     _scrollController.dispose();
     super.dispose();
   }
@@ -1793,18 +1824,31 @@ class _ReaderPageState extends State<ReaderPage> {
                   controller: _scrollController,
                   padding: const EdgeInsets.fromLTRB(12, 4, 12, 20),
                   itemCount: ayahs.length,
-                  itemBuilder: (context, index) => VerseCard(
-                    key: ValueKey(ayahs[index].key),
-                    repository: widget.repository,
-                    ayah: ayahs[index],
-                    language: lang,
-                    translationLanguage: widget.translationLanguage,
-                    arabicScale: widget.arabicScale,
-                    isBookmarked: widget.bookmarks.contains(ayahs[index].key),
-                    onBookmark: () => widget.onBookmark(ayahs[index]),
-                    onReadAyah: () => widget.onReadAyah(ayahs[index]),
-                    isLastRead: widget.lastReadKey == ayahs[index].key,
-                  ),
+                  itemBuilder: (context, index) {
+                    final ayah = ayahs[index];
+                    final isPlaying = _activeAyahKey == ayah.key;
+                    return AnimatedContainer(
+                      duration: const Duration(milliseconds: 220),
+                      decoration: BoxDecoration(
+                        color: isPlaying ? gold.withAlpha(34) : Colors.transparent,
+                        borderRadius: BorderRadius.circular(20),
+                        border: isPlaying ? Border.all(color: gold, width: 1.5) : null,
+                      ),
+                      padding: isPlaying ? const EdgeInsets.all(3) : EdgeInsets.zero,
+                      child: VerseCard(
+                        key: ValueKey(ayah.key),
+                        repository: widget.repository,
+                        ayah: ayah,
+                        language: lang,
+                        translationLanguage: widget.translationLanguage,
+                        arabicScale: widget.arabicScale,
+                        isBookmarked: widget.bookmarks.contains(ayah.key),
+                        onBookmark: () => widget.onBookmark(ayah),
+                        onReadAyah: () => widget.onReadAyah(ayah),
+                        isLastRead: widget.lastReadKey == ayah.key,
+                      ),
+                    );
+                  },
                 ),
               ),
       ),
@@ -1883,6 +1927,7 @@ class _RecitationPageState extends State<RecitationPage> {
   @override
   void dispose() {
     unawaited(_errorSubscription.cancel());
+    if (activeRecitationAyahKey.value != null) activeRecitationAyahKey.value = null;
     unawaited(_player.dispose());
     super.dispose();
   }
@@ -2045,6 +2090,13 @@ class _RecitationPageState extends State<RecitationPage> {
                 builder: (context, snapshot) {
                   final index = (snapshot.data ?? 0).clamp(0, _surah.ayahs.length - 1).toInt();
                   final ayah = _surah.ayahs[index];
+                  if (activeRecitationAyahKey.value != ayah.key) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (activeRecitationAyahKey.value != ayah.key) {
+                        activeRecitationAyahKey.value = ayah.key;
+                      }
+                    });
+                  }
                   return Container(
                     padding: const EdgeInsets.all(18),
                     decoration: BoxDecoration(color: _softSurfaceColor(context), borderRadius: BorderRadius.circular(20), border: Border.all(color: outline)),
