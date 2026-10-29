@@ -39,6 +39,8 @@ class QuranReciter {
   final int bitrate;
   /// Exact EveryAyah folder whose audio has matching word timing annotations.
   final String? timingFolder;
+  /// Exact audio folder when EveryAyah is the source but timings are unavailable.
+  final String? everyAyahFolder;
 
   const QuranReciter({
     required this.id,
@@ -46,6 +48,7 @@ class QuranReciter {
     required this.arabicName,
     required this.bitrate,
     this.timingFolder,
+    this.everyAyahFolder,
   });
 }
 
@@ -58,7 +61,7 @@ const List<QuranReciter> supportedReciters = <QuranReciter>[
   QuranReciter(id: 'ar.minshawimujawwad', name: 'Al-Minshawi · Mujawwad', arabicName: 'محمد صديق المنشاوي', bitrate: 192, timingFolder: 'Minshawy_Mujawwad_192kbps'),
   QuranReciter(id: 'ar.sudais', name: 'Abdul Rahman Al-Sudais', arabicName: 'عبدالرحمن السديس', bitrate: 192, timingFolder: 'Abdurrahmaan_As-Sudais_192kbps'),
   QuranReciter(id: 'ar.shuraim', name: 'Saud Al-Shuraim', arabicName: 'سعود الشريم', bitrate: 128, timingFolder: 'Saood_ash-Shuraym_128kbps'),
-  QuranReciter(id: 'ar.ajamy', name: 'Ahmed Al-Ajamy', arabicName: 'أحمد العجمي', bitrate: 128),
+  QuranReciter(id: 'ar.ajamy', name: 'Ahmed Al-Ajamy', arabicName: 'أحمد العجمي', bitrate: 128, everyAyahFolder: 'Ahmed_ibn_Ali_al-Ajamy_128kbps'),
   QuranReciter(id: 'ar.hudhaify', name: 'Ali Al-Hudhaify', arabicName: 'علي بن عبدالرحمن الحذيفي', bitrate: 128),
 ];
 
@@ -79,7 +82,7 @@ String recitationAudioUrl(QuranReciter reciter, int surahNumber, int ayahNumber,
   if (surahNumber < 1 || surahNumber > 114 || ayahNumber < 1 || ayahNumber > 286) {
     throw RangeError('Invalid surah/ayah: $surahNumber:$ayahNumber');
   }
-  final folder = reciter.timingFolder;
+  final folder = reciter.everyAyahFolder ?? reciter.timingFolder;
   if (folder != null) {
     final surah = surahNumber.toString().padLeft(3, '0');
     final ayah = ayahNumber.toString().padLeft(3, '0');
