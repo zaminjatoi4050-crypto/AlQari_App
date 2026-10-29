@@ -554,9 +554,13 @@ class QuranRepository {
       for (final token in rawFeatures.split('|')) {
         final feature = token.trim();
         if (feature.isEmpty) continue;
-        if (feature.startsWith('ROOT:')) rootByKey.putIfAbsent(key, () => _buckwalterToArabic(feature.substring(5)));
-        else if (feature.startsWith('LEM:')) lemmaByKey.putIfAbsent(key, () => _buckwalterToArabic(feature.substring(4)));
-        else if (feature.startsWith('POS:')) posByKey[key] = feature.substring(4);
+        if (feature.startsWith('ROOT:')) {
+          rootByKey.putIfAbsent(key, () => _buckwalterToArabic(feature.substring(5)));
+        } else if (feature.startsWith('LEM:')) {
+          lemmaByKey.putIfAbsent(key, () => _buckwalterToArabic(feature.substring(4)));
+        } else if (feature.startsWith('POS:')) {
+          posByKey[key] = feature.substring(4);
+        }
         if (!feature.startsWith('ROOT:') && !feature.startsWith('LEM:') && !feature.startsWith('POS:') &&
             feature != 'STEM' && feature != 'PREFIX' && feature != 'SUFFIX') {
           featureSetByKey.putIfAbsent(key, () => <String>{}).add(feature);
@@ -929,7 +933,7 @@ class _LoadingScreenState extends State<_LoadingScreen>
                 errorBuilder: (context, error, stackTrace) => Container(
                   color: forest,
                   alignment: Alignment.center,
-                  child: Icon(Icons.menu_book_rounded, color: gold, size: 58),
+                  child: const Icon(Icons.menu_book_rounded, color: gold, size: 58),
                 ),
               ),
             ),
@@ -1029,7 +1033,7 @@ class _LoadingScreenState extends State<_LoadingScreen>
                       child: const LinearProgressIndicator(
                         minHeight: 3,
                         color: gold,
-                        backgroundColor: Color(0x553FFFFFF),
+                        backgroundColor: Color(0x55FFFFFF),
                       ),
                     ),
                   ),
@@ -1319,9 +1323,9 @@ class _HomeShellState extends State<HomeShell> {
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.fromLTRB(22, 22, 22, 22),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFF0D3B30), Color(0xFF195746), Color(0xFF236B55)]),
-                  borderRadius: const BorderRadius.vertical(bottom: Radius.circular(26)),
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFF0D3B30), Color(0xFF195746), Color(0xFF236B55)]),
+                  borderRadius: BorderRadius.vertical(bottom: Radius.circular(26)),
                 ),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Row(children: [
@@ -1618,7 +1622,7 @@ class HomeDashboard extends StatelessWidget {
           ),
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             Row(children: [
-              Icon(Icons.auto_awesome_rounded, color: const Color(0xFFB88728), size: 19),
+              const Icon(Icons.auto_awesome_rounded, color: Color(0xFFB88728), size: 19),
               const SizedBox(width: 8),
               Expanded(child: Text('${repository.surah(dailyAyah.surahNumber)?.nameEnglish ?? ''} · ${dailyAyah.key}', style: TextStyle(color: _mutedColor(context), fontSize: 12, fontWeight: FontWeight.w700))),
               const Icon(Icons.format_quote_rounded, color: Color(0xFFB88728)),
@@ -1871,7 +1875,7 @@ class _ReaderPageState extends State<ReaderPage> {
     for (var attempt = 0; attempt < 8; attempt++) {
       if (!mounted || !_scrollController.hasClients) return;
       final targetContext = _ayahItemKeys[key]?.currentContext;
-      if (targetContext != null) {
+      if (targetContext != null && targetContext.mounted) {
         await Scrollable.ensureVisible(
           targetContext,
           duration: const Duration(milliseconds: 420),
@@ -1909,7 +1913,7 @@ class _ReaderPageState extends State<ReaderPage> {
 
     // One last pass for the now-mounted item after the bounded refinement.
     final targetContext = _ayahItemKeys[key]?.currentContext;
-    if (mounted && targetContext != null) {
+    if (mounted && targetContext != null && targetContext.mounted) {
       await Scrollable.ensureVisible(
         targetContext,
         duration: const Duration(milliseconds: 420),
@@ -2228,8 +2232,12 @@ class _RecitationPageState extends State<RecitationPage> {
     // Do not publish a fake first-ayah state until a playlist is actually loaded.
     if (!mounted || !_initialized) return;
     final surah = widget.repository.surah(_selectedSurah);
-    if (surah == null || surah.ayahs.isEmpty ||
-        _currentPlaylistIndex < 0 || _currentPlaylistIndex >= surah.ayahs.length) return;
+    if (surah == null ||
+        surah.ayahs.isEmpty ||
+        _currentPlaylistIndex < 0 ||
+        _currentPlaylistIndex >= surah.ayahs.length) {
+      return;
+    }
     final ayah = surah.ayahs[_currentPlaylistIndex];
     if (activeRecitationAyahKey.value != ayah.key) {
       activeRecitationAyahKey.value = ayah.key;
@@ -2511,7 +2519,15 @@ class _RecitationPageState extends State<RecitationPage> {
                   return Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                     IconButton.filledTonal(
                       tooltip: uiText(lang, 'previousAyah'),
-                      onPressed: _loading ? null : () { if (_player.hasPrevious) _player.seekToPrevious(); else _player.seek(Duration.zero, index: 0); },
+                      onPressed: _loading
+                          ? null
+                          : () {
+                              if (_player.hasPrevious) {
+                                _player.seekToPrevious();
+                              } else {
+                                _player.seek(Duration.zero, index: 0);
+                              }
+                            },
                       icon: const Icon(Icons.skip_previous_rounded),
                       iconSize: 28,
                     ),
