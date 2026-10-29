@@ -2066,12 +2066,19 @@ class RecitationPage extends StatefulWidget {
 class _RecitationPageState extends State<RecitationPage> {
   late final AudioPlayer _player;
   late final StreamSubscription<PlayerException> _errorSubscription;
+  late final StreamSubscription<Duration> _positionSubscription;
+  late final StreamSubscription<int?> _indexSubscription;
+  late final StreamSubscription<ProcessingState> _processingSubscription;
   late int _selectedSurah;
   String _selectedReciter = 'ar.alafasy';
   bool _loading = false;
   bool _initialized = false;
+  bool _advancingSurah = false;
   String? _error;
   int _loadGeneration = 0;
+  int _currentPlaylistIndex = 0;
+  Duration _currentPosition = Duration.zero;
+  Map<String, List<RecitationTimingSegment>> _wordTimings = <String, List<RecitationTimingSegment>>{};
 
   QuranReciter get _reciter => supportedReciters.firstWhere((item) => item.id == _selectedReciter);
   Surah get _surah => widget.repository.surah(_selectedSurah)!;
@@ -2088,6 +2095,19 @@ class _RecitationPageState extends State<RecitationPage> {
         _loading = false;
       });
     });
+    _positionSubscription = _player.positionStream.listen((position) {
+      _currentPosition = position;
+      _syncCurrentRecitationPosition();
+    });
+    _indexSubscription = _player.currentIndexStream.listen((index) {
+      _currentPlaylistIndex = index ?? 0;
+      _currentPosition = Duration.zero;
+      _syncCurrentRecitationPosition();
+    });
+    _processingSubscription = _player.processingStateStream.listen((state) {
+      if (state == ProcessingState.completed) unawaited(_advanceToNextSurah());
+    });
+    unawaited(_loadWordTimings(_selectedReciter));
     if (widget.active) _loadSurahPlaylist();
   }
 
@@ -2109,9 +2129,74 @@ class _RecitationPageState extends State<RecitationPage> {
   @override
   void dispose() {
     unawaited(_errorSubscription.cancel());
+    unawaited(_positionSubscription.cancel());
+    unawaited(_indexSubscription.cancel());
+    unawaited(_processingSubscription.cancel());
     if (activeRecitationAyahKey.value != null) activeRecitationAyahKey.value = null;
+    activeRecitationWord.value = null;
     unawaited(_player.dispose());
     super.dispose();
+  }
+
+  Future<void> _loadWordTimings(String edition) async {
+    try {
+      final decoded = jsonDecode(await rootBundle.loadString('assets/data/word_timings.json'));
+      if (decoded is! Map<String, dynamic>) return;
+      final parsed = parseWordTimingData(decoded, edition);
+      if (!mounted || edition != _selectedReciter) return;
+      setState(() => _wordTimings = parsed);
+      _syncCurrentRecitationPosition();
+    } catch (_) {
+      // The app remains usable with ayah-level highlight if timing data is absent.
+      if (mounted && edition == _selectedReciter) setState(() => _wordTimings = <String, List<RecitationTimingSegment>>{});
+      activeRecitationWord.value = null;
+    }
+  }
+
+  void _syncCurrentRecitationPosition() {
+    if (!mounted) return;
+    final surah = widget.repository.surah(_selectedSurah);
+    if (surah == null || surah.ayahs.isEmpty ||
+        _currentPlaylistIndex < 0 || _currentPlaylistIndex >= surah.ayahs.length) return;
+    final ayah = surah.ayahs[_currentPlaylistIndex];
+    if (activeRecitationAyahKey.value != ayah.key) {
+      activeRecitationAyahKey.value = ayah.key;
+    }
+    final milliseconds = _currentPosition.inMilliseconds;
+    ActiveRecitationWord? nextWord;
+    for (final segment in _wordTimings[ayah.key] ?? const <RecitationTimingSegment>[]) {
+      if (milliseconds >= segment.startMs && milliseconds < segment.endMs) {
+        nextWord = ActiveRecitationWord(
+          ayahKey: ayah.key,
+          wordStartIndex: segment.wordStartIndex,
+          wordEndIndex: segment.wordEndIndex,
+        );
+        break;
+      }
+      if (segment.startMs > milliseconds) break;
+    }
+    if (!(activeRecitationWord.value?.sameAs(nextWord) ?? nextWord == null)) {
+      activeRecitationWord.value = nextWord;
+    }
+  }
+
+  Future<void> _advanceToNextSurah() async {
+    if (!mounted || !widget.active || !_initialized || _loading || _advancingSurah) return;
+    if (_selectedSurah >= 114) {
+      activeRecitationWord.value = null;
+      return;
+    }
+    _advancingSurah = true;
+    try {
+      if (!mounted) return;
+      setState(() => _selectedSurah += 1);
+      _currentPlaylistIndex = 0;
+      _currentPosition = Duration.zero;
+      activeRecitationWord.value = null;
+      await _loadSurahPlaylist(autoplay: true);
+    } finally {
+      _advancingSurah = false;
+    }
   }
 
   Future<void> _loadSurahPlaylist({int startIndex = 0, bool autoplay = false}) async {
@@ -2134,11 +2219,14 @@ class _RecitationPageState extends State<RecitationPage> {
       for (final ayah in surah.ayahs) {
         final globalNumber = globalAyahNumberFor(widget.repository, ayah);
         sources.add(AudioSource.uri(
-          Uri.parse(ayahAudioUrl(_selectedReciter, globalNumber, bitrate: _reciter.bitrate)),
+          Uri.parse(recitationAudioUrl(_reciter, surah.number, ayah.number, globalNumber)),
           tag: ayah.key,
         ));
       }
       final safeIndex = startIndex.clamp(0, sources.length - 1).toInt();
+      _currentPlaylistIndex = safeIndex;
+      _currentPosition = Duration.zero;
+      activeRecitationWord.value = null;
       await _player.setAudioSources(
   sources,
   initialIndex: safeIndex,
@@ -2147,7 +2235,8 @@ class _RecitationPageState extends State<RecitationPage> {
       if (!mounted || generation != _loadGeneration) return;
       _initialized = true;
       setState(() => _loading = false);
-      if (autoplay) await _player.play();
+      _syncCurrentRecitationPosition();
+      if (autoplay) unawaited(_player.play());
     } catch (error) {
       if (!mounted || generation != _loadGeneration) return;
       setState(() {
@@ -2168,7 +2257,12 @@ class _RecitationPageState extends State<RecitationPage> {
     if (value == _selectedReciter) return;
     final wasPlaying = _player.playing;
     final currentIndex = _player.currentIndex ?? 0;
-    setState(() => _selectedReciter = value);
+    setState(() {
+      _selectedReciter = value;
+      _wordTimings = <String, List<RecitationTimingSegment>>{};
+    });
+    activeRecitationWord.value = null;
+    unawaited(_loadWordTimings(value));
     await _loadSurahPlaylist(startIndex: currentIndex, autoplay: wasPlaying);
   }
 
@@ -2186,9 +2280,14 @@ class _RecitationPageState extends State<RecitationPage> {
         await _player.pause();
       } else {
         if (state?.processingState == ProcessingState.completed) {
-          await _player.seek(Duration.zero, index: 0);
+          if (_selectedSurah >= 114) {
+            await _player.seek(Duration.zero, index: 0);
+          } else {
+            await _advanceToNextSurah();
+            return;
+          }
         }
-        await _player.play();
+        unawaited(_player.play());
       }
     } catch (error) {
       if (!mounted) return;
@@ -2255,6 +2354,13 @@ class _RecitationPageState extends State<RecitationPage> {
               ),
               const SizedBox(height: 10),
               Text('${_reciter.bitrate} kbps · ${_reciter.id}', style: TextStyle(fontSize: 11, color: _mutedColor(context))),
+              const SizedBox(height: 4),
+              Text(
+                _wordTimings.isNotEmpty
+                    ? (lang == 'ur' ? 'لفظ بہ لفظ آڈیو ہائی لائٹ دستیاب ہے' : lang == 'sd' ? 'لفظ بہ لفظ آڊيو هاءِ لائيٽ موجود آهي' : 'Word-by-word audio highlighting available')
+                    : (lang == 'ur' ? 'آیات کی سطح پر ہائی لائٹ' : lang == 'sd' ? 'آيت جي سطح تي هاءِ لائيٽ' : 'Ayah-level highlighting'),
+                style: TextStyle(fontSize: 11, color: _wordTimings.isNotEmpty ? scheme.primary : _mutedColor(context), fontWeight: FontWeight.w600),
+              ),
               const SizedBox(height: 14),
               translationLanguageSelector(context, uiLanguage: lang, translationLanguage: widget.translationLanguage, onChanged: widget.onTranslationLanguage),
             ])),
