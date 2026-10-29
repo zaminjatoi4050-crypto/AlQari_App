@@ -1798,7 +1798,7 @@ double maxOffsetForAyahs(ScrollController controller, int ayahCount) {
   if (!controller.hasClients || ayahCount <= 1) return 300;
   final maxOffset = controller.position.maxScrollExtent;
   if (!maxOffset.isFinite || maxOffset <= 0) return 300;
-  return (maxOffset / (ayahCount - 1)).clamp(180.0, 720.0);
+  return (maxOffset / (ayahCount - 1)).clamp(180.0, 720.0).toDouble();
 }
 
 class _ReaderPageState extends State<ReaderPage> {
@@ -1864,7 +1864,7 @@ class _ReaderPageState extends State<ReaderPage> {
       final maxOffset = _scrollController.position.maxScrollExtent;
       final denominator = (ayahs.length - 1).clamp(1, 1 << 30);
       final fraction = targetIndex / denominator;
-      _scrollController.jumpTo((maxOffset * fraction).clamp(0.0, maxOffset));
+      _scrollController.jumpTo((maxOffset * fraction).clamp(0.0, maxOffset).toDouble());
       await WidgetsBinding.instance.endOfFrame;
     }
 
@@ -1901,7 +1901,7 @@ class _ReaderPageState extends State<ReaderPage> {
         final nextOffset = (_scrollController.offset + delta).clamp(
           0.0,
           _scrollController.position.maxScrollExtent,
-        );
+        ).toDouble();
         _scrollController.jumpTo(nextOffset);
       }
       await WidgetsBinding.instance.endOfFrame;
