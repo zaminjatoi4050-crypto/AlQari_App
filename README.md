@@ -5,16 +5,14 @@
 ## What the app includes
 
 - Full Quran reader, all 114 surahs and 30 Juz/Paras; opens at Juz 20 by default.
-- Complete ayah-level English, Urdu, and Sindhi translations, with translator/edition identifiers captured in `assets/data/data_manifest.json`.
+- One Urdu Quran translation by Fateh Muhammad Jalandhry (`ur.jalandhry`), with translator/edition details captured in `assets/data/data_manifest.json`.
 - Arabic words are selectable. Local word morphology includes corpus root/lemma, part of speech, morphology tags, and segmented forms.
 - On-demand word-by-word gloss lookup from the Quran Foundation API when internet is available; this network lookup is not bundled as copied data.
-- Ayah search across Arabic and all three bundled translation fields; Arabic harakat are ignored for searching without changing the displayed Quran text.
+- Ayah search across Arabic Quran text and Urdu translation; Arabic harakat are ignored for searching without changing the displayed Quran text.
 - Persistent bookmarks, selected UI language, and adjustable Arabic text size.
-- Recitation playlist with Qari selection, ayah-by-ayah playback, spoken translation after each ayah, and background/lock-screen media controls. Audio streams online; it is not downloaded for offline playback.
+- Recitation plays the selected Qari for one Arabic ayah, then a human-recorded Urdu translation attributed to Shamshad Ali Khan for that same ayah before moving on. Both tracks use the same player so the displayed ayah stays synchronized. Internet is required; audio is not bundled.
 - **Prayer Times & Adhan:** asks permission to use last-known/current device location, shows local Fajr/Dhuhr/Asr/Maghrib/Isha times (AlAdhan method 1, Hanafi Asr), and schedules Adhan-sound reminders for the next seven days. Android exact-alarm, notification, battery and manufacturer settings can affect delivery; refresh the schedule periodically.
-- **AI Quran Tutor:** restricts its instructions to Quran study, supports English/Urdu/Roman Urdu/Sindhi, and checks references against locally retrieved ayat before displaying them. It is an educational aid, not a substitute for a qualified scholar.
-- The Tutor requires your own Gemini API key entered in the app. It is not committed to this repository or compiled into the APK. The app stores it in local preferences, which are not an encrypted secret vault.
-- Offline reader, verse translations, search, bookmarks, and morphology work after the complete APK is built. Online word gloss, live prayer-time refresh, streaming audio and AI tutoring require internet.
+- Offline reader, Urdu verse translation, search, bookmarks, and morphology work after the complete APK is built. Online word gloss, live prayer-time refresh, and streamed Arabic/Urdu audio require internet.
 - GitHub Actions release workflow and build-time validation; no Flutter SDK is required on your personal computer.
 
 ## Build the installable APK using GitHub Actions
@@ -85,7 +83,7 @@ The font is fetched at runtime and cached after a successful online load. If fir
 
 ## Quran recitation (v1.3.0)
 
-The Recitation page lets users select a Surah and one of ten supported Qari/audio editions. Ayat are queued in order and move to the next ayah automatically. Playback has Play/Pause, Previous/Next, seek, current-ayah display, and a retry message. It streams from the Al Quran Cloud CDN and needs internet. Background playback, media notifications, lock-screen controls, and ayah metadata are now integrated. Offline audio downloads are not included. Translation speech depends on voices available on the Android device. See `DATA_SOURCES.md` for the audio source and rights reminder.
+The Recitation page lets users select a Surah and one of ten supported Qari/audio editions. Ayat are queued in order and move to the next ayah automatically. Playback has Play/Pause, Previous/Next, seek, current-ayah display, and a retry message. It streams from the Al Quran Cloud CDN and needs internet. Background playback, media notifications, lock-screen controls, and ayah metadata are now integrated. Offline audio downloads are not included. The spoken Urdu translation is a human recording streamed from the MP3Quran Urdu/Shamshad Ali Khan source; it is not device text-to-speech. See `DATA_SOURCES.md` for source and rights notes.
 
 
 ## Version 1.4.0 — AlQari visual identity
