@@ -1818,7 +1818,11 @@ class _ReaderPageState extends State<ReaderPage> {
 
   void _onActiveRecitationAyahChanged() {
     final key = activeRecitationAyahKey.value;
-    if (!mounted || key == null) return;
+    if (!mounted) return;
+    if (key == null) {
+      if (_activeAyahKey != null) setState(() => _activeAyahKey = null);
+      return;
+    }
 
     final index = _visibleAyahs.indexWhere((ayah) => ayah.key == key);
     if (index < 0) {
@@ -2157,7 +2161,9 @@ class _RecitationPageState extends State<RecitationPage> {
   }
 
   void _syncCurrentRecitationPosition() {
-    if (!mounted) return;
+    // The IndexedStack creates this page before the user starts recitation.
+    // Do not publish a fake first-ayah state until a playlist is actually loaded.
+    if (!mounted || !_initialized) return;
     final surah = widget.repository.surah(_selectedSurah);
     if (surah == null || surah.ayahs.isEmpty ||
         _currentPlaylistIndex < 0 || _currentPlaylistIndex >= surah.ayahs.length) return;
@@ -2184,7 +2190,7 @@ class _RecitationPageState extends State<RecitationPage> {
   }
 
   Future<void> _advanceToNextSurah() async {
-    if (!mounted || !widget.active || !_initialized || _loading || _advancingSurah) return;
+    if (!mounted || !_initialized || _loading || _advancingSurah) return;
     if (_selectedSurah >= 114) {
       activeRecitationWord.value = null;
       return;
