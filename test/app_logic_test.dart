@@ -70,7 +70,7 @@ void main() {
     final ajamy = supportedReciters.firstWhere((reciter) => reciter.id == 'ar.ajamy');
     expect(
       recitationAudioUrl(ajamy, 1, 1, 1),
-      'https://everyayah.com/data/Ahmed_ibn_Ali_al-Ajamy_128kbps/001001.mp3',
+      'https://everyayah.com/data/ahmed_ibn_ali_al_ajamy_128kbps/001001.mp3',
     );
   });
 
