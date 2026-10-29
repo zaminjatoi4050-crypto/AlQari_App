@@ -28,6 +28,8 @@ QURAN_CLOUD_SAMPLES = {
     "ar.hudhaify": "https://cdn.islamic.network/quran/audio/128/ar.hudhaify/1.mp3",
 }
 
+SPOKEN_URDU_TRANSLATION_SAMPLE = "https://verse.mp3quran.net/data/Urdu%29%20Shamshad%20Ali%20Khan/001001.mp3"
+
 
 def get_json(url: str) -> object:
     request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, "Accept": "application/json"})
@@ -74,7 +76,9 @@ def main() -> None:
         probe_audio(url)
         print(f"  playable sample OK: {edition}")
 
-    print(f"Audio source validation passed ({len(EVERYAYAH_SAMPLES) + len(QURAN_CLOUD_SAMPLES)} playable sample files).")
+    probe_audio(SPOKEN_URDU_TRANSLATION_SAMPLE)
+    print("  playable sample OK: human-recorded Urdu translation (Shamshad Ali Khan)")
+    print(f"Audio source validation passed ({len(EVERYAYAH_SAMPLES) + len(QURAN_CLOUD_SAMPLES) + 1} Arabic/Urdu sample files).")
 
 
 if __name__ == "__main__":
