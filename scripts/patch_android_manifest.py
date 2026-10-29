@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """Patch Android network settings and install AlQari launcher artwork."""
 from pathlib import Path
+import hashlib
 import re
 import shutil
+import urllib.request
 
 ROOT = Path(__file__).resolve().parents[1]
 manifest = ROOT / "android/app/src/main/AndroidManifest.xml"
@@ -35,6 +37,88 @@ if "android:networkSecurityConfig=" not in s:
     insert_at = application_match.end()
     s = s[:insert_at] + ' android:networkSecurityConfig="@xml/network_security_config"' + s[insert_at:]
 manifest.write_text(s, encoding="utf-8")
+
+
+# Runtime requirements for background audio, geolocation, and scheduled reminders.
+required_permissions = (
+    "android.permission.INTERNET",
+    "android.permission.WAKE_LOCK",
+    "android.permission.FOREGROUND_SERVICE",
+    "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK",
+    "android.permission.ACCESS_COARSE_LOCATION",
+    "android.permission.ACCESS_FINE_LOCATION",
+    "android.permission.RECEIVE_BOOT_COMPLETED",
+    "android.permission.SCHEDULE_EXACT_ALARM",
+)
+missing = [permission for permission in required_permissions if permission not in s]
+if missing:
+    root_start = s.find("<manifest")
+    root_end = s.find(">", root_start)
+    if root_start < 0 or root_end < 0:
+        raise SystemExit("Could not parse Android manifest root tag")
+    s = s[:root_end + 1] + "\n    " + "\n    ".join(
+        '<uses-permission android:name="' + permission + '" />' for permission in missing
+    ) + s[root_end + 1:]
+
+activity_match = re.search(r"<activity\b[^>]*>.*?</activity>", s, flags=re.S)
+if not activity_match:
+    raise SystemExit("Could not locate the launcher activity for background audio")
+activity = re.sub(r'android:name="[^"]+"',
+    'android:name="com.ryanheise.audioservice.AudioServiceActivity"',
+    activity_match.group(0), count=1)
+s = s[:activity_match.start()] + activity + s[activity_match.end():]
+application_components = """
+        <service android:name="com.ryanheise.audioservice.AudioService"
+            android:foregroundServiceType="mediaPlayback" android:exported="true">
+            <intent-filter><action android:name="android.media.browse.MediaBrowserService" /></intent-filter>
+        </service>
+        <receiver android:name="com.ryanheise.audioservice.MediaButtonReceiver" android:exported="true">
+            <intent-filter><action android:name="android.intent.action.MEDIA_BUTTON" /></intent-filter>
+        </receiver>
+        <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />
+        <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />
+            </intent-filter>
+        </receiver>
+"""
+if "com.ryanheise.audioservice.AudioService" not in s:
+    s = s.replace("</application>", application_components + "\n    </application>", 1)
+manifest.write_text(s, encoding="utf-8")
+
+for gradle_name in ("android/app/build.gradle.kts", "android/app/build.gradle"):
+    gradle_path = ROOT / gradle_name
+    if not gradle_path.exists():
+        continue
+    gradle = gradle_path.read_text(encoding="utf-8")
+    kotlin_dsl = gradle_name.endswith(".kts")
+    multidex = "multiDexEnabled = true" if kotlin_dsl else "multiDexEnabled true"
+    desugaring = "isCoreLibraryDesugaringEnabled = true" if kotlin_dsl else "coreLibraryDesugaringEnabled true"
+    dependency = 'coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")' if kotlin_dsl else "coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'"
+    match = re.search(r"defaultConfig\s*\{", gradle)
+    if match and "multiDexEnabled" not in gradle:
+        gradle = gradle[:match.end()] + "\n        " + multidex + gradle[match.end():]
+    match = re.search(r"compileOptions\s*\{", gradle)
+    if match and "CoreLibraryDesugaringEnabled" not in gradle and "coreLibraryDesugaringEnabled" not in gradle:
+        gradle = gradle[:match.end()] + "\n        " + desugaring + gradle[match.end():]
+    match = re.search(r"dependencies\s*\{", gradle)
+    if match and "desugar_jdk_libs" not in gradle:
+        gradle = gradle[:match.end()] + "\n    " + dependency + gradle[match.end():]
+    gradle_path.write_text(gradle, encoding="utf-8")
+
+adhan_url = "https://upload.wikimedia.org/wikipedia/commons/b/b0/Beautiful_adhan.ogg"
+request = urllib.request.Request(adhan_url, headers={"User-Agent": "AlQari Android build"})
+with urllib.request.urlopen(request, timeout=60) as response:
+    adhan_bytes = response.read()
+if len(adhan_bytes) < 200000 or hashlib.sha1(adhan_bytes).hexdigest() != "a1fa4fd942401922c5c3301816384aae86956522":
+    raise SystemExit("Downloaded Adhan did not match the verified CC0 source file.")
+raw_dir = ROOT / "android/app/src/main/res/raw"
+raw_dir.mkdir(parents=True, exist_ok=True)
+(raw_dir / "adhan.ogg").write_bytes(adhan_bytes)
+print("Background audio, location permissions, scheduled notifications and CC0 Adhan installed.")
 
 # Flutter's Android scaffold is freshly generated in CI, so install our icon
 # assets after scaffold generation. PNGs are pre-sized; this script needs only

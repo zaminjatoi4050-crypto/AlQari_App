@@ -47,3 +47,11 @@ The project source code in this repository is made available under the MIT licen
 
 - Audio is streamed by ayah from the Al Quran Cloud CDN. URL structure and edition examples are documented at https://alquran.cloud/cdn. The app does not bundle audio files. The edition IDs configured in the app include `ar.alafasy`, `ar.abdulbasit`, `ar.abdulbasitmujawwad`, `ar.husary`, `ar.minshawi`, `ar.minshawimujawwad`, `ar.sudais`, `ar.shuraim`, `ar.ajamy`, and `ar.hudhaify`.
 - Audio stream URLs require an internet connection. Verify current provider terms and any required rights/permissions for the recitation recordings before public/commercial release; CDN availability alone should not be treated as a blanket commercial license.
+
+
+## Additional feature sources
+- Prayer times: AlAdhan Prayer Times API, method 1 (University of Islamic Sciences, Karachi), using device location: https://aladhan.com/prayer-times-api
+- Adhan notification audio: “Beautiful adhan.ogg” by Adam-synagda, Wikimedia Commons, CC0 1.0: https://commons.wikimedia.org/wiki/File:Beautiful_adhan.ogg
+- Background playback and lock-screen media controls: just_audio_background / audio_service packages (MIT licenses).
+- Scheduled notifications and device location: flutter_local_notifications (BSD-3-Clause), geolocator (MIT), flutter_timezone (Apache-2.0), timezone (BSD-2-Clause).
+- AI Quran Tutor: Google Gemini API. Users provide their own API key inside the app; it is not committed or compiled into the APK. App-local preferences are not an encrypted secret vault.
