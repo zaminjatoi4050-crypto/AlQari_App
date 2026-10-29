@@ -942,7 +942,7 @@ class _LoadingScreenState extends State<_LoadingScreen>
   Widget _assemblingBrandMark() => AnimatedBuilder(
         animation: _assemblyController,
         builder: (context, child) {
-          final progress = Curves.easeOutBack.transform(_assemblyController.value).clamp(0.0, 1.0);
+          final double progress = Curves.easeOutBack.transform(_assemblyController.value).clamp(0.0, 1.0).toDouble();
           return SizedBox(
             width: 100,
             height: 100,
@@ -1796,7 +1796,6 @@ class ReaderPage extends StatefulWidget {
 
 class _ReaderPageState extends State<ReaderPage> {
   String? _activeAyahKey;
-  ActiveRecitationWord? _activeWordRange;
   final Map<String, GlobalKey> _ayahItemKeys = <String, GlobalKey>{};
   late String _mode;
   late int _selectedJuz;
@@ -1811,9 +1810,7 @@ class _ReaderPageState extends State<ReaderPage> {
     _selectedSurah = widget.initialSurah;
     _scrollController = ScrollController(initialScrollOffset: widget.initialScrollOffset);
     _activeAyahKey = activeRecitationAyahKey.value;
-    _activeWordRange = activeRecitationWord.value;
     activeRecitationAyahKey.addListener(_onActiveRecitationAyahChanged);
-    activeRecitationWord.addListener(_onActiveRecitationWordChanged);
   }
 
   void _onActiveRecitationAyahChanged() {
@@ -1848,12 +1845,6 @@ class _ReaderPageState extends State<ReaderPage> {
     });
   }
 
-  void _onActiveRecitationWordChanged() {
-    final next = activeRecitationWord.value;
-    if (!mounted || (_activeWordRange?.sameAs(next) ?? next == null)) return;
-    setState(() => _activeWordRange = next);
-  }
-
   Future<void> _scrollToAyah(String key) async {
     if (!mounted) return;
     final targetContext = _ayahItemKeys[key]?.currentContext;
@@ -1869,7 +1860,6 @@ class _ReaderPageState extends State<ReaderPage> {
   @override
   void dispose() {
     activeRecitationAyahKey.removeListener(_onActiveRecitationAyahChanged);
-    activeRecitationWord.removeListener(_onActiveRecitationWordChanged);
     _scrollController.dispose();
     super.dispose();
   }
@@ -1913,6 +1903,20 @@ class _ReaderPageState extends State<ReaderPage> {
     if (_mode == 'surah') return widget.repository.surah(_selectedSurah)?.ayahs ?? const [];
     return widget.repository.allAyahs.where((a) => a.juz == _selectedJuz).toList(growable: false);
   }
+
+  Widget _buildVerseCard(Ayah ayah, String lang, {ActiveRecitationWord? activeWordRange}) => VerseCard(
+        key: ValueKey(ayah.key),
+        repository: widget.repository,
+        ayah: ayah,
+        language: lang,
+        translationLanguage: widget.translationLanguage,
+        arabicScale: widget.arabicScale,
+        isBookmarked: widget.bookmarks.contains(ayah.key),
+        onBookmark: () => widget.onBookmark(ayah),
+        onReadAyah: () => widget.onReadAyah(ayah),
+        isLastRead: widget.lastReadKey == ayah.key,
+        activeWordRange: activeWordRange,
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -2023,19 +2027,16 @@ class _ReaderPageState extends State<ReaderPage> {
                           border: _activeAyahKey == ayah.key ? Border.all(color: gold, width: 1.5) : null,
                         ),
                         padding: _activeAyahKey == ayah.key ? const EdgeInsets.all(3) : EdgeInsets.zero,
-                        child: VerseCard(
-                          key: ValueKey(ayah.key),
-                          repository: widget.repository,
-                          ayah: ayah,
-                          language: lang,
-                          translationLanguage: widget.translationLanguage,
-                          arabicScale: widget.arabicScale,
-                          isBookmarked: widget.bookmarks.contains(ayah.key),
-                          onBookmark: () => widget.onBookmark(ayah),
-                          onReadAyah: () => widget.onReadAyah(ayah),
-                          isLastRead: widget.lastReadKey == ayah.key,
-                          activeWordRange: _activeWordRange,
-                        ),
+                        child: _activeAyahKey == ayah.key
+                            ? ValueListenableBuilder<ActiveRecitationWord?>(
+                                valueListenable: activeRecitationWord,
+                                builder: (context, range, child) => _buildVerseCard(
+                                  ayah,
+                                  lang,
+                                  activeWordRange: range,
+                                ),
+                              )
+                            : _buildVerseCard(ayah, lang),
                       ),
                   ],
                 ),
