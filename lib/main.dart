@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:http/http.dart' as http;
@@ -2139,6 +2140,7 @@ class RecitationPage extends StatefulWidget {
 
 class _RecitationPageState extends State<RecitationPage> {
   late final AudioPlayer _player;
+  late final FlutterTts _translationTts;
   late final StreamSubscription<PlayerException> _errorSubscription;
   late final StreamSubscription<Duration> _positionSubscription;
   late final StreamSubscription<int?> _indexSubscription;
@@ -2148,6 +2150,8 @@ class _RecitationPageState extends State<RecitationPage> {
   bool _loading = false;
   bool _initialized = false;
   bool _advancingSurah = false;
+  bool _translationSpeaking = false;
+  bool _manualNavigation = false;
   String? _error;
   int _loadGeneration = 0;
   int _currentPlaylistIndex = 0;
@@ -2162,6 +2166,18 @@ class _RecitationPageState extends State<RecitationPage> {
     super.initState();
     _selectedSurah = widget.initialSurah.clamp(1, 114).toInt();
     _player = AudioPlayer();
+    _translationTts = FlutterTts();
+    _translationTts.setCompletionHandler(() {
+      if (!mounted || !_translationSpeaking) return;
+      _translationSpeaking = false;
+      unawaited(_playNextAyahAfterTranslation());
+    });
+    _translationTts.setErrorHandler((message) {
+      if (!mounted) return;
+      _translationSpeaking = false;
+      setState(() => _error = 'Translation voice unavailable: $message');
+      unawaited(_playNextAyahAfterTranslation());
+    });
     _errorSubscription = _player.errorStream.listen((error) {
       if (!mounted) return;
       setState(() {
@@ -2179,7 +2195,7 @@ class _RecitationPageState extends State<RecitationPage> {
       _syncCurrentRecitationPosition();
     });
     _processingSubscription = _player.processingStateStream.listen((state) {
-      if (state == ProcessingState.completed) unawaited(_advanceToNextSurah());
+      if (state == ProcessingState.completed) unawaited(_onAyahAudioCompleted());
     });
     unawaited(_loadWordTimings(_selectedReciter));
     if (widget.active) _loadSurahPlaylist();
@@ -2208,6 +2224,7 @@ class _RecitationPageState extends State<RecitationPage> {
     unawaited(_processingSubscription.cancel());
     if (activeRecitationAyahKey.value != null) activeRecitationAyahKey.value = null;
     activeRecitationWord.value = null;
+    unawaited(_translationTts.stop());
     unawaited(_player.dispose());
     super.dispose();
   }
@@ -2260,12 +2277,39 @@ class _RecitationPageState extends State<RecitationPage> {
     }
   }
 
+  Future<void> _onAyahAudioCompleted() async {
+    if (!mounted || !_initialized || _loading || _translationSpeaking || _manualNavigation) return;
+    final surah = widget.repository.surah(_selectedSurah);
+    if (surah == null || _currentPlaylistIndex < 0 || _currentPlaylistIndex >= surah.ayahs.length) return;
+    final ayah = surah.ayahs[_currentPlaylistIndex];
+    final translation = ayah.translationFor(widget.translationLanguage).trim();
+    if (translation.isEmpty) { await _playNextAyahAfterTranslation(); return; }
+    _translationSpeaking = true;
+    try {
+      await _translationTts.stop();
+      final ttsLanguage = switch (widget.translationLanguage) { 'ur' => 'ur-PK', 'sd' => 'sd-PK', _ => 'en-US' };
+      await _translationTts.setLanguage(ttsLanguage);
+      await _translationTts.setSpeechRate(0.46);
+      await _translationTts.setPitch(1.0);
+      await _translationTts.speak(translation);
+    } catch (_) {
+      _translationSpeaking = false;
+      await _playNextAyahAfterTranslation();
+    }
+  }
+
+  Future<void> _playNextAyahAfterTranslation() async {
+    if (!mounted || !_initialized || _loading) return;
+    final surah = widget.repository.surah(_selectedSurah);
+    if (surah == null) return;
+    if (_currentPlaylistIndex + 1 < surah.ayahs.length) {
+      await _loadSurahPlaylist(startIndex: _currentPlaylistIndex + 1, autoplay: true);
+    } else { await _advanceToNextSurah(); }
+  }
+
   Future<void> _advanceToNextSurah() async {
     if (!mounted || !_initialized || _loading || _advancingSurah) return;
-    if (_selectedSurah >= 114) {
-      activeRecitationWord.value = null;
-      return;
-    }
+    if (_selectedSurah >= 114) { activeRecitationWord.value = null; return; }
     _advancingSurah = true;
     try {
       if (!mounted) return;
@@ -2274,9 +2318,7 @@ class _RecitationPageState extends State<RecitationPage> {
       _currentPosition = Duration.zero;
       activeRecitationWord.value = null;
       await _loadSurahPlaylist(autoplay: true);
-    } finally {
-      _advancingSurah = false;
-    }
+    } finally { _advancingSurah = false; }
   }
 
   Future<void> _loadSurahPlaylist({int startIndex = 0, bool autoplay = false}) async {
@@ -2295,23 +2337,24 @@ class _RecitationPageState extends State<RecitationPage> {
     });
     try {
       await _player.stop();
-      final sources = <AudioSource>[];
-      for (final ayah in surah.ayahs) {
-        final globalNumber = globalAyahNumberFor(widget.repository, ayah);
-        sources.add(AudioSource.uri(
+      final safeIndex = startIndex.clamp(0, surah.ayahs.length - 1).toInt();
+      final ayah = surah.ayahs[safeIndex];
+      final globalNumber = globalAyahNumberFor(widget.repository, ayah);
+      final sources = <AudioSource>[
+        AudioSource.uri(
           Uri.parse(recitationAudioUrl(_reciter, surah.number, ayah.number, globalNumber)),
           tag: ayah.key,
-        ));
-      }
-      final safeIndex = startIndex.clamp(0, sources.length - 1).toInt();
+        ),
+      ];
       _currentPlaylistIndex = safeIndex;
       _currentPosition = Duration.zero;
+      _translationSpeaking = false;
       activeRecitationWord.value = null;
       await _player.setAudioSources(
-  sources,
-  initialIndex: safeIndex,
-  initialPosition: Duration.zero,
-);
+        sources,
+        initialIndex: 0,
+        initialPosition: Duration.zero,
+      );
       if (!mounted || generation != _loadGeneration) return;
       _initialized = true;
       setState(() => _loading = false);
@@ -2328,15 +2371,21 @@ class _RecitationPageState extends State<RecitationPage> {
   }
 
   Future<void> _changeSurah(int value) async {
-    final wasPlaying = _player.playing;
+    final wasPlaying = _player.playing || _translationSpeaking;
+    _manualNavigation = true;
+    _translationSpeaking = false;
+    await _translationTts.stop();
     setState(() => _selectedSurah = value);
     await _loadSurahPlaylist(autoplay: wasPlaying);
+    _manualNavigation = false;
   }
 
   Future<void> _changeReciter(String value) async {
     if (value == _selectedReciter) return;
-    final wasPlaying = _player.playing;
-    final currentIndex = _player.currentIndex ?? 0;
+    final wasPlaying = _player.playing || _translationSpeaking;
+    final currentIndex = _currentPlaylistIndex;
+    _translationSpeaking = false;
+    await _translationTts.stop();
     setState(() {
       _selectedReciter = value;
       _wordTimings = <String, List<RecitationTimingSegment>>{};
@@ -2358,6 +2407,9 @@ class _RecitationPageState extends State<RecitationPage> {
     try {
       if (_player.playing) {
         await _player.pause();
+      } else if (_translationSpeaking) {
+        _translationSpeaking = false;
+        await _translationTts.stop();
       } else {
         if (state?.processingState == ProcessingState.completed) {
           if (_selectedSurah >= 114) {
@@ -2522,11 +2574,15 @@ class _RecitationPageState extends State<RecitationPage> {
                       onPressed: _loading
                           ? null
                           : () {
-                              if (_player.hasPrevious) {
-                                _player.seekToPrevious();
+                              _manualNavigation = true;
+                              _translationSpeaking = false;
+                              unawaited(_translationTts.stop());
+                              if (_currentPlaylistIndex > 0) {
+                                unawaited(_loadSurahPlaylist(startIndex: _currentPlaylistIndex - 1, autoplay: true));
                               } else {
-                                _player.seek(Duration.zero, index: 0);
+                                unawaited(_loadSurahPlaylist(startIndex: 0, autoplay: true));
                               }
+                              _manualNavigation = false;
                             },
                       icon: const Icon(Icons.skip_previous_rounded),
                       iconSize: 28,
@@ -2546,7 +2602,18 @@ class _RecitationPageState extends State<RecitationPage> {
                     const SizedBox(width: 16),
                     IconButton.filledTonal(
                       tooltip: uiText(lang, 'nextAyah'),
-                      onPressed: _loading || !_player.hasNext ? null : () => _player.seekToNext(),
+                      onPressed: _loading ? null : () {
+                        _manualNavigation = true;
+                        _translationSpeaking = false;
+                        unawaited(_translationTts.stop());
+                        final surah = widget.repository.surah(_selectedSurah);
+                        if (surah != null && _currentPlaylistIndex + 1 < surah.ayahs.length) {
+                          unawaited(_loadSurahPlaylist(startIndex: _currentPlaylistIndex + 1, autoplay: true));
+                        } else {
+                          unawaited(_advanceToNextSurah());
+                        }
+                        _manualNavigation = false;
+                      },
                       icon: const Icon(Icons.skip_next_rounded),
                       iconSize: 28,
                     ),
