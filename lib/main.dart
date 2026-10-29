@@ -3,7 +3,6 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_tts/flutter_tts.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:geolocator/geolocator.dart';
@@ -348,13 +347,6 @@ String uiText(String language, String key) {
     'noRoot': {'en': 'Not tagged with a root in the source.', 'ur': 'ماخذ میں مادہ درج نہیں۔', 'sd': 'ماخذ ۾ مادو درج ناهي.'},
     'selectedVerse': {'en': 'Selected ayah', 'ur': 'منتخب آیت', 'sd': 'چونڊيل آيت'},
     'change': {'en': 'Change', 'ur': 'تبدیل کریں', 'sd': 'تبديل ڪريو'},
-    'quranTutor': {'en': 'AI Quran Tutor', 'ur': 'اے آئی قرآن ٹیوٹر', 'sd': 'اي آءِ قرآن استاد'},
-    'tutorWelcome': {'en': 'Assalamu alaikum. Ask about the Quran, an ayah, or Quranic Arabic. I will not invent references I cannot verify.', 'ur': 'السلام علیکم۔ قرآن، کسی آیت یا قرآنی عربی کے بارے میں سوال کریں۔ میں غیر مصدقہ حوالہ نہیں بناؤں گا۔', 'sd': 'السلام عليڪم. قرآن، آيت يا قرآني عربي بابت سوال پڇو. مان بنا تصديق حوالو نه ڏيندس.'},
-    'tutorAsk': {'en': 'Ask a Quran-related question…', 'ur': 'قرآن سے متعلق سوال لکھیں…', 'sd': 'قرآن بابت سوال لکو…'},
-    'tutorKeyLabel': {'en': 'Gemini API key (saved on this device)', 'ur': 'Gemini API key (اس ڈیوائس پر محفوظ)', 'sd': 'Gemini API key (هن ڊوائيس تي محفوظ)'},
-    'tutorNeedsKey': {'en': 'Add your own Gemini API key to enable the tutor. A key is not embedded in this app build.', 'ur': 'ٹیوٹر فعال کرنے کے لیے اپنی Gemini API key درج کریں۔ key ایپ میں شامل نہیں کی گئی۔', 'sd': 'ٽيُوٽر هلائڻ لاءِ پنهنجي Gemini API key ڏيو. key ايپ ۾ شامل ناهي.'},
-    'saveKey': {'en': 'Save key', 'ur': 'کی محفوظ کریں', 'sd': 'ڪي محفوظ ڪريو'},
-    'removeKey': {'en': 'Remove key', 'ur': 'کی حذف کریں', 'sd': 'ڪي هٽايو'},
     'prayerTimes': {'en': 'Prayer Times & Adhan', 'ur': 'نماز کے اوقات اور اذان', 'sd': 'نماز جا وقت ۽ اذان'},
     'prayerSubtitle': {'en': 'Local prayer times and scheduled Adhan reminders.', 'ur': 'مقامی نماز کے اوقات اور اذان یاددہانیاں۔', 'sd': 'مقامي نماز جا وقت ۽ اذان ياد ڏيارڻ.'},
     'enablePrayerAlerts': {'en': 'Use location & schedule Adhan', 'ur': 'مقام سے اذان مقرر کریں', 'sd': 'هنڌ سان اذان مقرر ڪريو'},
@@ -416,7 +408,7 @@ class Ayah {
         sajda: json['sajda'],
       );
 
-  String translationFor(String language) => translations[language] ?? translations['en'] ?? '';
+  String translationFor(String language) => translations['ur'] ?? '';
 }
 
 class Surah {
@@ -1156,12 +1148,11 @@ class _HomeShellState extends State<HomeShell> {
 
   Future<void> _restorePreferences() async {
     final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('geminiApiKey');
     if (!mounted) return;
     setState(() {
       final lang = prefs.getString('language') ?? 'en';
       _language = const ['en', 'ur', 'sd'].contains(lang) ? lang : 'en';
-      final savedTranslationLanguage = prefs.getString('translationLanguage') ?? 'ur';
-      _translationLanguage = const ['en', 'ur', 'sd'].contains(savedTranslationLanguage) ? savedTranslationLanguage : 'ur';
       _arabicScale = (prefs.getDouble('arabicScale') ?? 32).clamp(26, 50).toDouble();
       _readerMode = prefs.getString('readerMode') == 'surah' ? 'surah' : 'juz';
       _readerSelectedJuz = (prefs.getInt('readerJuz') ?? 20).clamp(1, 30).toInt();
@@ -1181,13 +1172,6 @@ class _HomeShellState extends State<HomeShell> {
     setState(() => _language = value);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('language', value);
-  }
-
-  Future<void> _setTranslationLanguage(String value) async {
-    if (!const ['en', 'ur', 'sd'].contains(value)) return;
-    setState(() => _translationLanguage = value);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('translationLanguage', value);
   }
 
   Future<void> _setArabicScale(double value) async {
@@ -1274,8 +1258,7 @@ class _HomeShellState extends State<HomeShell> {
     _selectTab(2, closeDrawer: false);
   }
 
-  void _openTutor() => _selectTab(7, closeDrawer: false);
-  void _openPrayerTimes() => _selectTab(8, closeDrawer: false);
+  void _openPrayerTimes() => _selectTab(7, closeDrawer: false);
 
   void _openRecitationFromDrawer() {
     Navigator.of(context).pop();
@@ -1293,9 +1276,7 @@ class _HomeShellState extends State<HomeShell> {
       applicationVersion: '1.8.0',
       applicationIcon: alQariBrandMark(size: 58, radius: 14),
       children: const [
-        Text('Read, search, bookmark, listen to recitation, and study Quran ayat in English, Urdu and Sindhi.'),
-        SizedBox(height: 10),
-        Text('Quran text, translation, audio, font, and morphology source attribution is available in Settings → Sources & attribution.'),
+        Text('Read the Holy Quran in Arabic with Urdu translation and listen to verse-by-verse recitation.'),
       ],
     );
   }
@@ -1326,8 +1307,7 @@ class _HomeShellState extends State<HomeShell> {
       3 => uiText(lang, 'searchQuran'),
       4 => uiText(lang, 'bookmarks'),
       5 => uiText(lang, 'more'),
-      7 => uiText(lang, 'quranTutor'),
-      8 => uiText(lang, 'prayerTimes'),
+      7 => uiText(lang, 'prayerTimes'),
       _ => uiText(lang, 'settings'),
     };
 
@@ -1396,7 +1376,6 @@ class _HomeShellState extends State<HomeShell> {
                   _drawerItem(icon: Icons.menu_book_rounded, title: uiText(lang, 'quranTab'), selected: _tab == 1, onTap: () => _selectTab(1)),
                   _drawerItem(icon: Icons.play_lesson_outlined, title: uiText(lang, 'continueReading'), subtitle: _lastReadKey == null ? '${uiText(lang, 'surah')} $_lastReadSurah' : '${uiText(lang, 'verse')} $_lastReadKey', onTap: _continueReading),
                   _drawerItem(icon: Icons.headphones_rounded, title: uiText(lang, 'recitation'), onTap: _openRecitationFromDrawer),
-                  _drawerItem(icon: Icons.auto_awesome_rounded, title: uiText(lang, 'quranTutor'), onTap: _openTutor),
                   _drawerItem(icon: Icons.access_time_rounded, title: uiText(lang, 'prayerTimes'), onTap: _openPrayerTimes),
                   _drawerItem(icon: Icons.search_rounded, title: uiText(lang, 'searchQuran'), selected: _tab == 3, onTap: () => _selectTab(3)),
                   _drawerItem(icon: Icons.bookmark_rounded, title: uiText(lang, 'bookmarks'), selected: _tab == 4, onTap: () => _selectTab(4)),
@@ -1466,7 +1445,6 @@ class _HomeShellState extends State<HomeShell> {
               onContinueReading: _continueReading,
               onAbout: _showAbout,
               onReadQuran: () => _selectTab(1, closeDrawer: false),
-              onTutor: _openTutor,
               onPrayerTimes: _openPrayerTimes,
             ),
             SettingsPage(
@@ -1480,7 +1458,6 @@ class _HomeShellState extends State<HomeShell> {
               onThemeMode: widget.onThemeMode,
               onAccentIndex: widget.onAccentIndex,
             ),
-            QuranTutorPage(repository: widget.repository, language: lang),
             PrayerTimesPage(language: lang),
           ],
         ),
@@ -1746,10 +1723,9 @@ class MorePage extends StatelessWidget {
   final VoidCallback onContinueReading;
   final VoidCallback onAbout;
   final VoidCallback onReadQuran;
-  final VoidCallback onTutor;
   final VoidCallback onPrayerTimes;
 
-  const MorePage({super.key, required this.language, required this.bookmarkCount, required this.onSearch, required this.onSettings, required this.onRecitation, required this.onContinueReading, required this.onAbout, required this.onReadQuran, required this.onTutor, required this.onPrayerTimes});
+  const MorePage({super.key, required this.language, required this.bookmarkCount, required this.onSearch, required this.onSettings, required this.onRecitation, required this.onContinueReading, required this.onAbout, required this.onReadQuran, required this.onPrayerTimes});
 
   @override
   Widget build(BuildContext context) {
@@ -1758,8 +1734,7 @@ class MorePage extends StatelessWidget {
       (icon: Icons.search_rounded, title: uiText(language, 'searchQuran'), subtitle: uiText(language, 'searchHint'), action: onSearch),
       (icon: Icons.headphones_rounded, title: uiText(language, 'recitation'), subtitle: uiText(language, 'chooseReciter'), action: onRecitation),
       (icon: Icons.menu_book_rounded, title: uiText(language, 'continueReading'), subtitle: uiText(language, 'readSubtitle'), action: onContinueReading),
-      (icon: Icons.translate_rounded, title: uiText(language, 'translationTools'), subtitle: 'English · اردو · سنڌي', action: onSettings),
-      (icon: Icons.auto_awesome_rounded, title: uiText(language, 'quranTutor'), subtitle: uiText(language, 'tutorAsk'), action: onTutor),
+      (icon: Icons.translate_rounded, title: uiText(language, 'translationTools'), subtitle: 'اردو', action: onSettings),
       (icon: Icons.access_time_rounded, title: uiText(language, 'prayerTimes'), subtitle: uiText(language, 'prayerSubtitle'), action: onPrayerTimes),
       (icon: Icons.tune_rounded, title: uiText(language, 'settingsAppearance'), subtitle: uiText(language, 'appearance'), action: onSettings),
       (icon: Icons.info_outline_rounded, title: uiText(language, 'about'), subtitle: 'AlQari · Version 1.8.0', action: onAbout),
@@ -3227,115 +3202,6 @@ class SettingsPage extends StatelessWidget {
 }
 
 
-class QuranTutorPage extends StatefulWidget {
-  final QuranRepository repository;
-  final String language;
-  const QuranTutorPage({super.key, required this.repository, required this.language});
-  @override
-  State<QuranTutorPage> createState() => _QuranTutorPageState();
-}
-class _QuranTutorPageState extends State<QuranTutorPage> {
-  final TextEditingController _key=TextEditingController(), _question=TextEditingController();
-  final ScrollController _scroll=ScrollController();
-  final List<Map<String,String>> _messages=[];
-  String _apiKey='';
-  bool _keyLoaded=false, _busy=false;
-  @override
-  void initState(){super.initState();_messages.add({'role':'assistant','text':uiText(widget.language,'tutorWelcome')});_loadKey();}
-  Future<void> _loadKey() async {
-    try { final p=await SharedPreferences.getInstance(); final value=p.getString('geminiApiKey')??'';
-      if (mounted) setState(() { _apiKey = value; _key.text = value; _keyLoaded = true; });
-    } catch (_) {if(mounted)setState(()=>_keyLoaded=true);}
-  }
-  Future<void> _saveKey() async {
-    final value=_key.text.trim(); if(value.isEmpty)return;
-    final p=await SharedPreferences.getInstance(); await p.setString('geminiApiKey',value);
-    if(mounted)setState(()=>_apiKey=value);
-  }
-  Future<void> _removeKey() async {
-    final p=await SharedPreferences.getInstance(); await p.remove('geminiApiKey');
-    if (mounted) setState(() { _apiKey = ''; _key.clear(); });
-  }
-  List<Ayah> _retrieve(String question) {
-    const stop=<String>{'what','when','where','which','with','from','this','that','have','does','about','tell','explain','please','into','the','and','are','for','is','how','why','who','can','you','quran','verse','ayah','surah','ka','ki','ke','kya','hai','hain','aur','mein','mai','mujhe','batao','samjhao','karo','ko','ye','woh'};
-    final terms=RegExp(r'[A-Za-z0-9\u0600-\u06FF]+').allMatches(removeQuranMarks(question.toLowerCase())).map((m)=>m.group(0)!).where((w)=>w.length>2&&!stop.contains(w)).toSet();
-    if(terms.isEmpty)return const [];
-    final ranked=<({Ayah ayah,int score})>[];
-    for(final a in widget.repository.allAyahs){
-      final search=removeQuranMarks((a.arabic+' '+a.translations.values.join(' ')).toLowerCase());
-      final score=terms.where(search.contains).length;
-      if(score>0)ranked.add((ayah:a,score:score));
-    }
-    ranked.sort((a,b)=>b.score.compareTo(a.score));
-    return ranked.take(5).map((e)=>e.ayah).toList(growable:false);
-  }
-  Future<void> _ask() async {
-    final question=_question.text.trim(); if(question.isEmpty||_busy)return;
-    _question.clear(); setState(() { _messages.add({'role':'user', 'text': question}); _busy = true; });
-    try {
-      if(_apiKey.isEmpty)throw Exception('Add your Gemini API key first.');
-      final ayat=_retrieve(question);
-      final passages=ayat.isEmpty?'No matching passage was retrieved locally. Do not invent an exact verse reference.':ayat.map((a){
-        final name=widget.repository.surah(a.surahNumber)?.nameEnglish??'Surah '+a.surahNumber.toString();
-        return a.key+' — '+name+'\nArabic: '+a.arabic+'\nEnglish: '+a.translationFor('en')+'\nUrdu: '+a.translationFor('ur')+'\nSindhi: '+a.translationFor('sd');
-      }).join('\n\n');
-      const system='You are AlQari, a respectful Quran-study tutor. Answer ONLY about the Holy Quran, its themes, verses, recitation, Quranic Arabic and tafsir. Politely decline unrelated questions. Do not claim to be a mufti or issue definitive personal religious rulings; suggest a qualified scholar for disputed fiqh or tafsir. Reply in English, Urdu, Roman Urdu or Sindhi, matching the user. Do not invent Quran text, quotations, surah names, ayah numbers or references. Use exact verse references only when that exact S:A key occurs in the verified local passages supplied in the prompt. If there is no verified passage, say you cannot verify a reference. Distinguish Quran wording from interpretation.';
-      final response=await http.post(
-        Uri.https('generativelanguage.googleapis.com','/v1beta/models/gemini-3.8-flash:generateContent',{'key':_apiKey}),
-        headers:const {'Content-Type':'application/json'},
-        body:jsonEncode({'systemInstruction':{'parts':[{'text':system}]},
-          'contents':[{'role':'user','parts':[{'text':'Question: '+question+'\n\nVERIFIED LOCAL PASSAGES:\n'+passages}]}],
-          'generationConfig':{'temperature':0.2,'maxOutputTokens':1200}}),
-      ).timeout(const Duration(seconds:35));
-      if(response.statusCode<200||response.statusCode>=300)throw Exception('Gemini API returned HTTP '+response.statusCode.toString()+'. Check your key and API access.');
-      final payload=jsonDecode(response.body) as Map<String,dynamic>;
-      final candidates=payload['candidates'] as List<dynamic>? ?? const [];
-      final parts=candidates.isEmpty?const <dynamic>[]:((candidates.first as Map<String,dynamic>)['content'] as Map<String,dynamic>?)?['parts'] as List<dynamic>? ?? const [];
-      var answer=parts.whereType<Map>().map((p)=>p['text']?.toString()??'').where((v)=>v.isNotEmpty).join('\n').trim();
-      final allowed=ayat.map((a)=>a.key).toSet();
-      answer=answer.replaceAllMapped(RegExp(r'\b([1-9]\d{0,2})\s*:\s*([1-9]\d{0,2})\b'),(m){
-        final ref=m.group(1)!+':'+m.group(2)!;
-        return allowed.contains(ref)?ref:'[reference not verified: '+ref+']';
-      });
-      if(answer.isEmpty)answer='I could not produce a reliable answer. Please rephrase your Quran-related question.';
-      if(mounted)setState(()=>_messages.add({'role':'assistant','text':answer}));
-    } catch(e){if(mounted)setState(()=>_messages.add({'role':'assistant','text':e.toString().replaceFirst('Exception: ','')}));}
-    finally{
-      if(mounted)setState(()=>_busy=false);
-      WidgetsBinding.instance.addPostFrameCallback((_){if(_scroll.hasClients)_scroll.animateTo(_scroll.position.maxScrollExtent,duration:const Duration(milliseconds:240),curve:Curves.easeOut);});
-    }
-  }
-  @override
-  void dispose(){_key.dispose();_question.dispose();_scroll.dispose();super.dispose();}
-  @override
-  Widget build(BuildContext context){
-    final lang=widget.language; final scheme=Theme.of(context).colorScheme;
-    return Column(children:[
-      if(!_keyLoaded)const LinearProgressIndicator(minHeight:2)
-      else if(_apiKey.isEmpty)Padding(padding:const EdgeInsets.fromLTRB(14,12,14,4),child:Card(child:Padding(padding:const EdgeInsets.all(14),child:Column(crossAxisAlignment:CrossAxisAlignment.stretch,children:[
-        Text(uiText(lang,'tutorNeedsKey'),style:TextStyle(color:scheme.onSurfaceVariant,fontSize:12)),
-        const SizedBox(height:8),TextField(controller:_key,obscureText:true,decoration:InputDecoration(labelText:uiText(lang,'tutorKeyLabel'),border:const OutlineInputBorder())),
-        const SizedBox(height:8),FilledButton(onPressed:_saveKey,child:Text(uiText(lang,'saveKey'))),
-      ]))))
-      else Padding(padding:const EdgeInsets.symmetric(horizontal:14,vertical:8),child:Row(children:[
-        Icon(Icons.auto_awesome_rounded,color:scheme.primary),const SizedBox(width:8),
-        Expanded(child:Text(uiText(lang,'quranTutor'),style:TextStyle(fontWeight:FontWeight.w800,color:scheme.primary))),
-        TextButton(onPressed:_removeKey,child:Text(uiText(lang,'removeKey'))),
-      ])),
-      Expanded(child:ListView.builder(controller:_scroll,padding:const EdgeInsets.all(14),itemCount:_messages.length,itemBuilder:(context,index){
-        final item=_messages[index];final user=item['role']=='user';
-        return Align(alignment:user?AlignmentDirectional.centerEnd:AlignmentDirectional.centerStart,child:Container(constraints:const BoxConstraints(maxWidth:560),margin:const EdgeInsets.only(bottom:9),padding:const EdgeInsets.all(12),
-          decoration:BoxDecoration(color:user?scheme.primary.withAlpha(24):scheme.surface,border:Border.all(color:Theme.of(context).dividerColor),borderRadius:BorderRadius.circular(16)),
-          child:SelectableText(item['text']??'',textDirection:isRtl(lang)?TextDirection.rtl:TextDirection.ltr,style:TextStyle(color:scheme.onSurface,height:1.5))));
-      })),
-      if(_busy)const LinearProgressIndicator(minHeight:2),
-      SafeArea(top:false,child:Padding(padding:const EdgeInsets.fromLTRB(12,8,12,12),child:Row(crossAxisAlignment:CrossAxisAlignment.end,children:[
-        Expanded(child:TextField(controller:_question,minLines:1,maxLines:4,textDirection:isRtl(lang)?TextDirection.rtl:TextDirection.ltr,decoration:InputDecoration(hintText:uiText(lang,'tutorAsk'),border:const OutlineInputBorder()),onSubmitted:(_)=>_ask())),
-        const SizedBox(width:7),IconButton.filled(onPressed:_busy?null:_ask,icon:const Icon(Icons.send_rounded)),
-      ]))),
-    ]);
-  }
-}
 
 class PrayerTimesPage extends StatefulWidget {
   final String language;
