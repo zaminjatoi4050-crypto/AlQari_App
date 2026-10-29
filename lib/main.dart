@@ -1794,6 +1794,13 @@ class ReaderPage extends StatefulWidget {
   State<ReaderPage> createState() => _ReaderPageState();
 }
 
+double maxOffsetForAyahs(ScrollController controller, int ayahCount) {
+  if (!controller.hasClients || ayahCount <= 1) return 300;
+  final maxOffset = controller.position.maxScrollExtent;
+  if (!maxOffset.isFinite || maxOffset <= 0) return 300;
+  return (maxOffset / (ayahCount - 1)).clamp(180.0, 720.0);
+}
+
 class _ReaderPageState extends State<ReaderPage> {
   String? _activeAyahKey;
   final Map<String, GlobalKey> _ayahItemKeys = <String, GlobalKey>{};
@@ -1846,15 +1853,70 @@ class _ReaderPageState extends State<ReaderPage> {
   }
 
   Future<void> _scrollToAyah(String key) async {
-    if (!mounted) return;
+    if (!mounted || !_scrollController.hasClients) return;
+    final ayahs = _visibleAyahs;
+    final targetIndex = ayahs.indexWhere((ayah) => ayah.key == key);
+    if (targetIndex < 0) return;
+
+    // Sliver children are lazily mounted. First jump near the target based on
+    // the list's estimated extent, then refine using the nearest mounted row.
+    if (_ayahItemKeys[key]?.currentContext == null) {
+      final maxOffset = _scrollController.position.maxScrollExtent;
+      final denominator = (ayahs.length - 1).clamp(1, 1 << 30);
+      final fraction = targetIndex / denominator;
+      _scrollController.jumpTo((maxOffset * fraction).clamp(0.0, maxOffset));
+      await WidgetsBinding.instance.endOfFrame;
+    }
+
+    for (var attempt = 0; attempt < 8; attempt++) {
+      if (!mounted || !_scrollController.hasClients) return;
+      final targetContext = _ayahItemKeys[key]?.currentContext;
+      if (targetContext != null) {
+        await Scrollable.ensureVisible(
+          targetContext,
+          duration: const Duration(milliseconds: 420),
+          alignment: 0.12,
+          curve: Curves.easeInOutCubic,
+        );
+        return;
+      }
+
+      var firstMountedIndex = -1;
+      var lastMountedIndex = -1;
+      for (var i = 0; i < ayahs.length; i++) {
+        if (_ayahItemKeys[ayahs[i].key]?.currentContext != null) {
+          if (firstMountedIndex < 0) firstMountedIndex = i;
+          lastMountedIndex = i;
+        }
+      }
+
+      if (firstMountedIndex < 0) {
+        _scrollController.jumpTo(0);
+      } else {
+        final visibleAnchor = targetIndex < firstMountedIndex
+            ? firstMountedIndex
+            : lastMountedIndex;
+        final averageRowExtent = maxOffsetForAyahs(_scrollController, ayahs.length);
+        final delta = (targetIndex - visibleAnchor) * averageRowExtent;
+        final nextOffset = (_scrollController.offset + delta).clamp(
+          0.0,
+          _scrollController.position.maxScrollExtent,
+        );
+        _scrollController.jumpTo(nextOffset);
+      }
+      await WidgetsBinding.instance.endOfFrame;
+    }
+
+    // One last pass for the now-mounted item after the bounded refinement.
     final targetContext = _ayahItemKeys[key]?.currentContext;
-    if (targetContext == null) return;
-    await Scrollable.ensureVisible(
-      targetContext,
-      duration: const Duration(milliseconds: 420),
-      alignment: 0.12,
-      curve: Curves.easeInOutCubic,
-    );
+    if (mounted && targetContext != null) {
+      await Scrollable.ensureVisible(
+        targetContext,
+        duration: const Duration(milliseconds: 420),
+        alignment: 0.12,
+        curve: Curves.easeInOutCubic,
+      );
+    }
   }
 
   @override
