@@ -1989,6 +1989,10 @@ class _ReaderPageState extends State<ReaderPage> {
       );
 
   @override
+  Widget build(BuildContext context) {
+    final lang = widget.language;
+    final scheme = Theme.of(context).colorScheme;
+    final ayahs = _visibleAyahs;
     return Column(children: [
       if (_showSelectionControls) Container(
         margin: const EdgeInsets.fromLTRB(14, 14, 14, 5),
@@ -2068,7 +2072,7 @@ class _ReaderPageState extends State<ReaderPage> {
             style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
           ),
         ]),
-      ),
+      )
       else Container(
         margin: const EdgeInsets.fromLTRB(14, 10, 14, 4),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
