@@ -137,7 +137,7 @@ void main() {
       number: 1,
       key: '1:1',
       arabic: 'بِسْمِ اللَّهِ',
-      translations: const {
+      translations: {
         'en': 'English translation',
         'ur': 'اردو ترجمہ',
         'sd': 'سنڌي ترجمو',
@@ -161,7 +161,7 @@ void main() {
       number: 1,
       key: '1:1',
       arabic: 'بِسْمِ اللَّهِ',
-      translations: const {'en': 'English translation', 'ur': 'اردو ترجمہ'},
+      translations: {'en': 'English translation', 'ur': 'اردو ترجمہ'},
       juz: 1,
       page: 1,
       hizbQuarter: 1,
