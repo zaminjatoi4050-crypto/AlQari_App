@@ -98,6 +98,15 @@ String recitationAudioUrl(QuranReciter reciter, int surahNumber, int ayahNumber,
   return ayahAudioUrl(reciter.id, globalAyahNumber, bitrate: reciter.bitrate);
 }
 
+/// Human-recorded Urdu translation by Shamshad Ali Khan, streamed per ayah.
+String spokenUrduTranslationAudioUrl(int surahNumber, int ayahNumber) {
+  if (surahNumber < 1 || surahNumber > 114 || ayahNumber < 1 || ayahNumber > 286) {
+    throw RangeError('Invalid surah/ayah: ' + surahNumber.toString() + ':' + ayahNumber.toString());
+  }
+  final file = surahNumber.toString().padLeft(3, '0') + ayahNumber.toString().padLeft(3, '0') + '.mp3';
+  return 'https://verse.mp3quran.net/data/Urdu%29%20Shamshad%20Ali%20Khan/' + file;
+}
+
 class RecitationTimingSegment {
   final int wordStartIndex;
   final int wordEndIndex;
@@ -1273,7 +1282,7 @@ class _HomeShellState extends State<HomeShell> {
     showAboutDialog(
       context: context,
       applicationName: 'AlQari',
-      applicationVersion: '1.8.0',
+      applicationVersion: '1.8.1',
       applicationIcon: alQariBrandMark(size: 58, radius: 14),
       children: const [
         Text('Read the Holy Quran in Arabic with Urdu translation and listen to verse-by-verse recitation.'),
@@ -1386,7 +1395,7 @@ class _HomeShellState extends State<HomeShell> {
                   _drawerItem(icon: Icons.info_outline_rounded, title: uiText(lang, 'about'), onTap: _showAbout),
                 ]),
               ),
-              Padding(padding: const EdgeInsets.fromLTRB(20, 0, 20, 12), child: Text('AlQari · Version 1.8.0', style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 11))),
+              Padding(padding: const EdgeInsets.fromLTRB(20, 0, 20, 12), child: Text('AlQari · Version 1.8.1', style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 11))),
             ]),
           ),
         ),
@@ -1429,7 +1438,6 @@ class _HomeShellState extends State<HomeShell> {
               repository: widget.repository,
               language: lang,
               translationLanguage: _translationLanguage,
-              onTranslationLanguage: _setTranslationLanguage,
               arabicScale: _arabicScale,
               initialSurah: _readerMode == 'surah' ? _readerSelectedSurah : _lastReadSurah,
               active: _tab == 2,
@@ -1737,7 +1745,7 @@ class MorePage extends StatelessWidget {
       (icon: Icons.translate_rounded, title: uiText(language, 'translationTools'), subtitle: 'اردو', action: onSettings),
       (icon: Icons.access_time_rounded, title: uiText(language, 'prayerTimes'), subtitle: uiText(language, 'prayerSubtitle'), action: onPrayerTimes),
       (icon: Icons.tune_rounded, title: uiText(language, 'settingsAppearance'), subtitle: uiText(language, 'appearance'), action: onSettings),
-      (icon: Icons.info_outline_rounded, title: uiText(language, 'about'), subtitle: 'AlQari · Version 1.8.0', action: onAbout),
+      (icon: Icons.info_outline_rounded, title: uiText(language, 'about'), subtitle: 'AlQari · Version 1.8.1', action: onAbout),
     ];
     return ListView(padding: const EdgeInsets.fromLTRB(16, 16, 16, 28), children: [
       Container(
@@ -2172,7 +2180,6 @@ class RecitationPage extends StatefulWidget {
   final QuranRepository repository;
   final String language;
   final String translationLanguage;
-  final ValueChanged<String> onTranslationLanguage;
   final double arabicScale;
   final int initialSurah;
   final bool active;
@@ -2182,7 +2189,6 @@ class RecitationPage extends StatefulWidget {
     required this.repository,
     required this.language,
     required this.translationLanguage,
-    required this.onTranslationLanguage,
     required this.arabicScale,
     required this.initialSurah,
     this.active = true,
@@ -2194,7 +2200,6 @@ class RecitationPage extends StatefulWidget {
 
 class _RecitationPageState extends State<RecitationPage> {
   late final AudioPlayer _player;
-  late final FlutterTts _translationTts;
   late final StreamSubscription<PlayerException> _errorSubscription;
   late final StreamSubscription<Duration> _positionSubscription;
   late final StreamSubscription<int?> _indexSubscription;
@@ -2220,18 +2225,6 @@ class _RecitationPageState extends State<RecitationPage> {
     super.initState();
     _selectedSurah = widget.initialSurah.clamp(1, 114).toInt();
     _player = AudioPlayer();
-    _translationTts = FlutterTts();
-    _translationTts.setCompletionHandler(() {
-      if (!mounted || !_translationSpeaking) return;
-      _translationAudioPlaying = false;
-      unawaited(_playNextAyahAfterTranslation());
-    });
-    _translationTts.setErrorHandler((message) {
-      if (!mounted) return;
-      _translationSpeaking = false;
-      setState(() => _error = 'Translation voice unavailable: $message');
-      unawaited(_playNextAyahAfterTranslation());
-    });
     _errorSubscription = _player.errorStream.listen((error) {
       if (!mounted) return;
       setState(() {
@@ -2280,7 +2273,7 @@ class _RecitationPageState extends State<RecitationPage> {
     unawaited(_processingSubscription.cancel());
     if (activeRecitationAyahKey.value != null) activeRecitationAyahKey.value = null;
     activeRecitationWord.value = null;
-    unawaited(_translationTts.stop());
+    
     unawaited(_player.dispose());
     super.dispose();
   }
@@ -2314,6 +2307,10 @@ class _RecitationPageState extends State<RecitationPage> {
     final ayah = surah.ayahs[_currentPlaylistIndex];
     if (activeRecitationAyahKey.value != ayah.key) {
       activeRecitationAyahKey.value = ayah.key;
+    }
+    if (_translationAudioPlaying) {
+      activeRecitationWord.value = null;
+      return;
     }
     final milliseconds = _currentPosition.inMilliseconds;
     ActiveRecitationWord? nextWord;
@@ -2427,7 +2424,7 @@ class _RecitationPageState extends State<RecitationPage> {
       ];
       _currentPlaylistIndex = safeIndex;
       _currentPosition = Duration.zero;
-      _translationSpeaking = false;
+      _translationAudioPlaying = false;
       activeRecitationWord.value = null;
       await _player.setAudioSources(
         sources,
@@ -2450,10 +2447,10 @@ class _RecitationPageState extends State<RecitationPage> {
   }
 
   Future<void> _changeSurah(int value) async {
-    final wasPlaying = _player.playing || _translationSpeaking;
+    final wasPlaying = _player.playing;
     _manualNavigation = true;
-    _translationSpeaking = false;
-    await _translationTts.stop();
+    _translationAudioPlaying = false;
+    
     setState(() => _selectedSurah = value);
     await _loadSurahPlaylist(autoplay: wasPlaying);
     _manualNavigation = false;
@@ -2461,10 +2458,10 @@ class _RecitationPageState extends State<RecitationPage> {
 
   Future<void> _changeReciter(String value) async {
     if (value == _selectedReciter) return;
-    final wasPlaying = _player.playing || _translationSpeaking;
+    final wasPlaying = _player.playing;
     final currentIndex = _currentPlaylistIndex;
-    _translationSpeaking = false;
-    await _translationTts.stop();
+    _translationAudioPlaying = false;
+    
     setState(() {
       _selectedReciter = value;
       _wordTimings = <String, List<RecitationTimingSegment>>{};
@@ -2486,9 +2483,6 @@ class _RecitationPageState extends State<RecitationPage> {
     try {
       if (_player.playing) {
         await _player.pause();
-      } else if (_translationSpeaking) {
-        _translationSpeaking = false;
-        await _translationTts.stop();
       } else {
         if (state?.processingState == ProcessingState.completed) {
           if (_selectedSurah >= 114) {
@@ -2573,7 +2567,7 @@ class _RecitationPageState extends State<RecitationPage> {
                 style: TextStyle(fontSize: 11, color: _wordTimings.isNotEmpty ? scheme.primary : _mutedColor(context), fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 14),
-              translationLanguageSelector(context, uiLanguage: lang, translationLanguage: widget.translationLanguage, onChanged: widget.onTranslationLanguage),
+              Text(lang == 'ur' || lang == 'sd' ? 'اردو ترجمہ: فتح محمد جالندھری · آواز: شمشاد علی خان' : 'Urdu translation: Fateh Muhammad Jalandhry · Spoken voice: Shamshad Ali Khan', style: TextStyle(fontSize: 11, height: 1.5, color: _mutedColor(context))),
             ])),
             const SizedBox(height: 12),
             _settingsCard(context, child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -2587,7 +2581,9 @@ class _RecitationPageState extends State<RecitationPage> {
                 stream: _player.currentIndexStream,
                 initialData: 0,
                 builder: (context, snapshot) {
-                  final index = (snapshot.data ?? 0).clamp(0, _surah.ayahs.length - 1).toInt();
+                  // The playlist only contains one item, so its stream index is 0.
+                  // This index tracks the actual ayah in the selected Surah.
+                  final index = _currentPlaylistIndex.clamp(0, _surah.ayahs.length - 1).toInt();
                   final ayah = _surah.ayahs[index];
                   if (activeRecitationAyahKey.value != ayah.key) {
                     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -2654,8 +2650,6 @@ class _RecitationPageState extends State<RecitationPage> {
                           ? null
                           : () {
                               _manualNavigation = true;
-                              _translationSpeaking = false;
-                              unawaited(_translationTts.stop());
                               if (_currentPlaylistIndex > 0) {
                                 unawaited(_loadSurahPlaylist(startIndex: _currentPlaylistIndex - 1, autoplay: true));
                               } else {
@@ -2683,8 +2677,6 @@ class _RecitationPageState extends State<RecitationPage> {
                       tooltip: uiText(lang, 'nextAyah'),
                       onPressed: _loading ? null : () {
                         _manualNavigation = true;
-                        _translationSpeaking = false;
-                        unawaited(_translationTts.stop());
                         final surah = widget.repository.surah(_selectedSurah);
                         if (surah != null && _currentPlaylistIndex + 1 < surah.ayahs.length) {
                           unawaited(_loadSurahPlaylist(startIndex: _currentPlaylistIndex + 1, autoplay: true));
@@ -3207,7 +3199,7 @@ class SettingsPage extends StatelessWidget {
         _sourceEntry(context, 'Arabic morphology', 'Quranic Arabic Corpus / mustafa0x/quran-morphology. Source morphology data is included verbatim with attribution.'),
         _sourceEntry(context, 'Prayer times', 'AlAdhan Prayer Times API, method 1 (University of Islamic Sciences, Karachi), using device location. Check your local mosque timetable if local practice differs.'),
         _sourceEntry(context, 'Adhan recording', 'Beautiful adhan.ogg by Adam-synagda, Wikimedia Commons, CC0 1.0: https://commons.wikimedia.org/wiki/File:Beautiful_adhan.ogg.'),
-        _sourceEntry(context, 'App feature libraries', 'Background media: just_audio_background / audio_service (MIT). Notifications: flutter_local_notifications (BSD-3-Clause). Location: geolocator (MIT). Time-zone handling: flutter_timezone (Apache-2.0) and timezone (BSD-2-Clause). AI tutoring uses Google Gemini API; the user supplies the key.'),
+        _sourceEntry(context, 'App feature libraries', 'Background audio uses just_audio_background and audio_service. Prayer notifications and device location use Flutter plugins.'),
         const SizedBox(height: 12),
         for (final lang in ['en', 'ur', 'sd']) if (translations[lang] is Map<String, dynamic>) ...[
           Text('${lang.toUpperCase()}: ${(translations[lang] as Map<String, dynamic>)['identifier'] ?? ''}', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
@@ -3354,19 +3346,6 @@ Widget _sourceEntry(BuildContext context, String title, String details) => Paddi
     const SizedBox(height: 3),
     Text(details, style: TextStyle(height: 1.45, color: _mutedColor(context), fontSize: 12)),
   ]),
-);
-
-Widget translationLanguageSelector(BuildContext context, {required String uiLanguage, required String translationLanguage, required ValueChanged<String> onChanged}) => DropdownButtonFormField<String>(
-  key: ValueKey('translation-language-$translationLanguage'),
-  initialValue: translationLanguage,
-  isExpanded: true,
-  decoration: InputDecoration(labelText: uiText(uiLanguage, 'translationLanguage'), prefixIcon: const Icon(Icons.translate_rounded), border: const OutlineInputBorder(), isDense: true),
-  items: [
-    DropdownMenuItem<String>(value: 'ur', child: Text(uiText(uiLanguage, 'urdu'))),
-    DropdownMenuItem<String>(value: 'sd', child: Text(uiText(uiLanguage, 'sindhi'))),
-    DropdownMenuItem<String>(value: 'en', child: Text(uiText(uiLanguage, 'english'))),
-  ],
-  onChanged: (value) { if (value != null) onChanged(value); },
 );
 
 Widget _settingsCard(BuildContext context, {required Widget child}) => Card(
