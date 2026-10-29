@@ -85,8 +85,23 @@ application_components = """
             </intent-filter>
         </receiver>
 """
-if "com.ryanheise.audioservice.AudioService" not in s:
+# Match the service's full android:name attribute. The launcher activity is
+# named AudioServiceActivity, which must not be mistaken for the service itself.
+if 'android:name="com.ryanheise.audioservice.AudioService"' not in s:
+    if "</application>" not in s:
+        raise SystemExit("Could not locate application closing tag for audio/notification components")
     s = s.replace("</application>", application_components + "\n    </application>", 1)
+
+required_component_markers = (
+    'android:name="com.ryanheise.audioservice.AudioService"',
+    'android:name="com.ryanheise.audioservice.MediaButtonReceiver"',
+    'android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver"',
+    'android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver"',
+    'android:name="com.ryanheise.audioservice.AudioServiceActivity"',
+)
+missing_components = [marker for marker in required_component_markers if marker not in s]
+if missing_components:
+    raise SystemExit("Missing required Android component(s): " + ", ".join(missing_components))
 manifest.write_text(s, encoding="utf-8")
 
 for gradle_name in ("android/app/build.gradle.kts", "android/app/build.gradle"):
