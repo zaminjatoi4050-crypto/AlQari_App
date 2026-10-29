@@ -2378,6 +2378,7 @@ class VerseCard extends StatelessWidget {
   final double arabicScale;
   final bool isBookmarked;
   final bool isLastRead;
+  final ActiveRecitationWord? activeWordRange;
   final VoidCallback onBookmark;
   final VoidCallback onReadAyah;
 
@@ -2392,6 +2393,7 @@ class VerseCard extends StatelessWidget {
     required this.onBookmark,
     required this.onReadAyah,
     this.isLastRead = false,
+    this.activeWordRange,
   });
 
   @override
@@ -2463,17 +2465,34 @@ class VerseCard extends StatelessWidget {
                 runSpacing: 7,
                 children: [
                   for (var i = 0; i < words.length; i++)
-                    InkWell(
-                      borderRadius: BorderRadius.circular(8),
-                      onTap: () {
-                        onReadAyah();
-                        showWordAnalysis(context, repository, ayah, i + 1, words[i], language);
-                      },
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
-                        child: Text(words[i], textDirection: TextDirection.rtl, style: quranTextStyle(context, fontSize: arabicScale, height: 2.0, color: scheme.onSurface)),
-                      ),
-                    ),
+                    Builder(builder: (context) {
+                      final timing = activeWordRange;
+                      final isActiveWord = timing != null &&
+                          timing.ayahKey == ayah.key &&
+                          i >= timing.wordStartIndex &&
+                          i < timing.wordEndIndex;
+                      return InkWell(
+                        borderRadius: BorderRadius.circular(8),
+                        onTap: () {
+                          onReadAyah();
+                          showWordAnalysis(context, repository, ayah, i + 1, words[i], language);
+                        },
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 110),
+                          padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: isActiveWord ? gold.withAlpha(150) : Colors.transparent,
+                            borderRadius: BorderRadius.circular(8),
+                            border: isActiveWord ? Border.all(color: gold, width: 1) : null,
+                          ),
+                          child: Text(
+                            words[i],
+                            textDirection: TextDirection.rtl,
+                            style: quranTextStyle(context, fontSize: arabicScale, height: 2.0, color: scheme.onSurface),
+                          ),
+                        ),
+                      );
+                    }),
                 ],
               ),
             ),
