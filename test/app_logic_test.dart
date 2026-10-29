@@ -62,6 +62,43 @@ void main() {
     );
   });
 
+  test('timed reciters use audio files paired with their word timings', () {
+    expect(
+      recitationAudioUrl(supportedReciters.first, 1, 1, 1),
+      'https://everyayah.com/data/Alafasy_128kbps/001001.mp3',
+    );
+    final ajamy = supportedReciters.firstWhere((reciter) => reciter.id == 'ar.ajamy');
+    expect(
+      recitationAudioUrl(ajamy, 1, 1, 1),
+      'https://cdn.islamic.network/quran/audio/128/ar.ajamy/1.mp3',
+    );
+  });
+
+  test('word timing JSON parser reads zero-based word ranges in milliseconds', () {
+    final parsed = parseWordTimingData(
+      const {
+        'reciters': {
+          'ar.alafasy': {
+            'verses': {
+              '1:1': [
+                [0, 1, 10, 250],
+                [1, 3, 251, 700],
+              ],
+            },
+          },
+        },
+      },
+      'ar.alafasy',
+    );
+
+    expect(parsed['1:1'], hasLength(2));
+    expect(parsed['1:1']!.first.wordStartIndex, 0);
+    expect(parsed['1:1']!.first.wordEndIndex, 1);
+    expect(parsed['1:1']!.first.startMs, 10);
+    expect(parsed['1:1']!.last.wordEndIndex, 3);
+    expect(parseWordTimingData(const {'reciters': {}}, 'ar.alafasy'), isEmpty);
+  });
+
   test('ayah audio URL rejects out-of-range global ayah numbers', () {
     expect(
       () => ayahAudioUrl('ar.alafasy', 0),
