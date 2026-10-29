@@ -292,7 +292,13 @@ def download_word_timings() -> tuple[Path, dict[str, int]]:
 
             by_verse: dict[str, list[list[int]]] = {}
             for name in candidates:
-                payload = json.loads(archive.read(name).decode("utf-8-sig"))
+                try:
+                    payload = json.loads(archive.read(name).decode("utf-8-sig"))
+                except (json.JSONDecodeError, UnicodeDecodeError):
+                    # Releases may include an index or metadata JSON beside the timing files.
+                    # Required verse-count validation below ensures timing data itself is complete.
+                    print(f"  Skipping non-data JSON entry: {name}")
+                    continue
                 for row in _timing_rows(payload):
                     try:
                         surah = int(row["surah"])
