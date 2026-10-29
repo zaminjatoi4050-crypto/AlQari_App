@@ -20,7 +20,7 @@ EVERYAYAH_SAMPLES = {
     "ar.minshawimujawwad": "https://everyayah.com/data/Minshawy_Mujawwad_192kbps/001001.mp3",
     "ar.sudais": "https://everyayah.com/data/Abdurrahmaan_As-Sudais_192kbps/001001.mp3",
     "ar.shuraim": "https://everyayah.com/data/Saood_ash-Shuraym_128kbps/001001.mp3",
-    "ar.ajamy": "https://everyayah.com/data/Ahmed_ibn_Ali_al-Ajamy_128kbps/001001.mp3",
+    "ar.ajamy": "https://everyayah.com/data/ahmed_ibn_ali_al_ajamy_128kbps/001001.mp3",
 }
 
 # Only this option depends on the Al Quran Cloud audio edition identifier.
