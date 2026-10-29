@@ -1681,7 +1681,7 @@ class _ReaderPageState extends State<ReaderPage> {
 
   @override
   void dispose() {
-    activeRecitationAyahKey.removeListener(_onActiveRecitationAyahChanged); {
+    activeRecitationAyahKey.removeListener(_onActiveRecitationAyahChanged);
     _scrollController.dispose();
     super.dispose();
   }
