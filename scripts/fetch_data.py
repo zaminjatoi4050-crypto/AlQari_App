@@ -2,7 +2,7 @@
 """Fetch and validate full Quran data for AlQari build-time assets.
 
 The app package does not ship a demo Quran. This script downloads the complete
-Arabic text and three verse translations, then obtains the Quranic Arabic
+Arabic text and the Urdu verse translation, then obtains the Quranic Arabic
 Corpus morphology file as a verbatim source asset. It validates the expected
 114 surahs / 6,236 ayat before a release build is allowed to continue.
 """
@@ -167,7 +167,7 @@ def normalize_verses(quran: dict[str, Any], translations: dict[str, dict[str, An
         for idx, ayah in enumerate(arabic_surah.get("ayahs", [])):
             an = int(ayah.get("numberInSurah", idx + 1))
             tr_texts: dict[str, str] = {}
-            for lang in ("en", "ur", "sd"):
+            for lang in translations:
                 text = translated_by_lang[lang].get(an, "").strip()
                 if not text:
                     raise RuntimeError(f"Missing {lang} translation at {sn}:{an}; refusing to ship incomplete data")
@@ -368,7 +368,7 @@ def main() -> None:
     arabic = fetch_quran_edition("quran-uthmani")
     translations: dict[str, dict[str, Any]] = {}
     edition_info: dict[str, dict[str, str]] = {}
-    for lang in ("en", "ur", "sd"):
+    for lang in ("ur",):
         print(f"Resolving complete {lang} translation edition...")
         ident, translator, version = get_translation_edition(lang)
         print(f"  Selected {ident} — {translator}")
@@ -402,7 +402,7 @@ def main() -> None:
     (DATA_DIR / "data_manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"Saved morphology source file ({morph_path.stat().st_size:,} bytes; {morph_records:,} records)")
     print(f"Saved timing asset ({timing_path.stat().st_size:,} bytes; {len(timing_counts)} reciters with validated timing data)")
-    print("Data validation passed: 114 surahs, 6,236 ayat, three translations and full morphology source.")
+    print("Data validation passed: 114 surahs, 6,236 ayat, Urdu translation and full morphology source.")
 
 
 if __name__ == "__main__":
