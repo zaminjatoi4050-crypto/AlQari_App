@@ -29,6 +29,8 @@ jobs:
 
       - name: Fetch and validate full Quran data
         run: python scripts/fetch_data.py
+      - name: Validate audio edition IDs and representative audio URLs
+        run: python scripts/validate_audio_sources.py
 
       - name: Set up Java
         uses: actions/setup-java@v4
