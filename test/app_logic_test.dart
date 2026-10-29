@@ -132,7 +132,7 @@ void main() {
     );
   });
   test('ayah translation follows the selected language independently', () {
-    final ayah = Ayah(
+    const ayah = Ayah(
       surahNumber: 1,
       number: 1,
       key: '1:1',
@@ -156,7 +156,7 @@ void main() {
   });
 
   test('ayah translation safely falls back to English for an unavailable locale', () {
-    final ayah = Ayah(
+    const ayah = Ayah(
       surahNumber: 1,
       number: 1,
       key: '1:1',
