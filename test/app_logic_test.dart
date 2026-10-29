@@ -1,4 +1,6 @@
 
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/services.dart';
 import 'package:al_qari/main.dart';
@@ -97,6 +99,19 @@ void main() {
     expect(parsed['1:1']!.first.startMs, 10);
     expect(parsed['1:1']!.last.wordEndIndex, 3);
     expect(parseWordTimingData(const {'reciters': {}}, 'ar.alafasy'), isEmpty);
+  });
+
+  test('generated timing asset contains full default-reciter verse timing data', () async {
+    final decoded = jsonDecode(
+      await rootBundle.loadString('assets/data/word_timings.json'),
+    );
+    expect(decoded, isA<Map>());
+    final parsed = parseWordTimingData(
+      Map<String, dynamic>.from(decoded as Map),
+      'ar.alafasy',
+    );
+    expect(parsed.length, greaterThanOrEqualTo(6000));
+    expect(parsed['1:1'], isNotEmpty);
   });
 
   test('ayah audio URL rejects out-of-range global ayah numbers', () {
