@@ -70,7 +70,7 @@ void main() {
     final ajamy = supportedReciters.firstWhere((reciter) => reciter.id == 'ar.ajamy');
     expect(
       recitationAudioUrl(ajamy, 1, 1, 1),
-      'https://cdn.islamic.network/quran/audio/128/ar.ajamy/1.mp3',
+      'https://everyayah.com/data/Ahmed_ibn_Ali_al-Ajamy_128kbps/001001.mp3',
     );
   });
 
