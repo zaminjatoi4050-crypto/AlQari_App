@@ -3406,7 +3406,7 @@ class _PrayerTimesPageState extends State<PrayerTimesPage>{
       await initNotifications();final pos=await obtainLocation();final lat=pos.latitude,lon=pos.longitude;
       final prefs=await SharedPreferences.getInstance();await prefs.setDouble('prayerLatitude',lat);await prefs.setDouble('prayerLongitude',lon);
       final today=DateTime.now();final calendar=await fetchDays(lat,lon,today,7);final todays=calendar[dateKey(today)]??const <String,String>{};
-      for(var id=baseId;id<baseId+40;id++){await notifications.cancel(id);}scheduledCount=0;
+      for(var id=baseId;id<baseId+40;id++){await notifications.cancel(id: id);}scheduledCount=0;
       final now=tz.TZDateTime.now(tz.local);final mode=exactAllowed?AndroidScheduleMode.exactAllowWhileIdle:AndroidScheduleMode.inexactAllowWhileIdle;
       for(var offset=0;offset<7;offset++){
         final date=DateTime(today.year,today.month,today.day+offset);final timings=calendar[dateKey(date)];if(timings==null)continue;
