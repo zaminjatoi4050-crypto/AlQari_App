@@ -3279,7 +3279,7 @@ class _QuranTutorPageState extends State<QuranTutorPage> {
       }).join('\n\n');
       const system='You are AlQari, a respectful Quran-study tutor. Answer ONLY about the Holy Quran, its themes, verses, recitation, Quranic Arabic and tafsir. Politely decline unrelated questions. Do not claim to be a mufti or issue definitive personal religious rulings; suggest a qualified scholar for disputed fiqh or tafsir. Reply in English, Urdu, Roman Urdu or Sindhi, matching the user. Do not invent Quran text, quotations, surah names, ayah numbers or references. Use exact verse references only when that exact S:A key occurs in the verified local passages supplied in the prompt. If there is no verified passage, say you cannot verify a reference. Distinguish Quran wording from interpretation.';
       final response=await http.post(
-        Uri.https('generativelanguage.googleapis.com','/v1beta/models/gemini-2.5-flash:generateContent',{'key':_apiKey}),
+        Uri.https('generativelanguage.googleapis.com','/v1beta/models/gemini-3.8-flash:generateContent',{'key':_apiKey}),
         headers:const {'Content-Type':'application/json'},
         body:jsonEncode({'systemInstruction':{'parts':[{'text':system}]},
           'contents':[{'role':'user','parts':[{'text':'Question: '+question+'\n\nVERIFIED LOCAL PASSAGES:\n'+passages}]}],
